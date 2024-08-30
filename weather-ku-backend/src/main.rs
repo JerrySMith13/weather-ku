@@ -1,14 +1,9 @@
-use std::fs::File;
-use std::io::Read;
-
-use parser::*;
+use std::io::Write;
 
 mod parser;
 
 fn main() {
-    let path = "data/weather.csv";
-    let mut data = String::new();
-    let mut file = File::open(path).unwrap();
-    file.read_to_string(&mut data);
-    
+    let weather_data_parsed = parser::WeatherData::from_file_path("test.txt".to_string()).unwrap();
+    let mut output = std::fs::File::create("output.txt").unwrap();
+    output.write_all(format!("{:?}", weather_data_parsed).as_bytes()).unwrap();
 }

@@ -176,7 +176,7 @@ impl WeatherData{
     }
     
     
-    pub fn from_file_path(path: String) -> ParseResult<Vec<WeatherData>>{
+    pub fn from_data(data: String) -> ParseResult<Vec<WeatherData>>{
 
         let mut dates: Vec<Date> = vec![];
         let mut weather_codes: Vec<u8> = vec![];
@@ -185,11 +185,6 @@ impl WeatherData{
         let mut precip_sums: Vec<f32> = vec![];
         let mut wind_maxs: Vec<f32> = vec![];
         let mut prob_maxs: Vec<f32> = vec![];
-
-        let data = match std::fs::read_to_string(&path){
-            Ok(data) => data,
-            Err(_) => return Err(ParseError::InvalidFilePath(path)),
-        }; 
         
         /*
         split by colon, then split by comma
@@ -274,6 +269,7 @@ impl WeatherData{
         }
         
         Ok(weather_data)
+        
             
 
 

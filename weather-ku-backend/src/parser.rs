@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Debug)]
 /// Represents an error that can occur during parsing
 pub enum ParseError{
@@ -7,14 +9,15 @@ pub enum ParseError{
     InvalidPrecipitation(String),
     InvalidWind(String),
     InvalidPrecipitationProbability(String),
-    InvalidFilePath(String),
     InvalidLine(String),
     TooManyValues,
+    DuplicateDate(Date),
 }
 
 type ParseResult<T> = Result<T, ParseError>;
+type WeatherDataMap = HashMap<Date, WeatherData>;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
 /// Struct representing a date 
 pub struct Date{
     year: u32,
@@ -47,6 +50,9 @@ impl Date{
             day,
         })
     }
+    pub fn to_string(&self) -> String{
+        format!("{}-{}-{}", self.year, self.month, self.day)
+    }
 }
 
 
@@ -57,7 +63,9 @@ fn parse_date(data: &str) -> ParseResult<Vec<Date>>{
     let mut dates: Vec<Date> = Vec::with_capacity(split.len());
     for date in split{
         match Date::from_string(date){
-            Ok(date) => dates.push(date),
+            Ok(date) => if dates.contains(&date) {
+                return Err(ParseError::DuplicateDate(date));
+            } else {dates.push(date);},
             Err(e) => return Err(e),
         }
     }
@@ -149,16 +157,16 @@ fn parse_prob_max(data: &str) -> ParseResult<Vec<f32>>{
     Ok(probs)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Struct representing a single weather data entry
 pub struct WeatherData{
-    date: Date,
-    weather_code: u8,
-    temp_max: f32,
-    temp_min: f32,
-    precip_sum: f32,
-    max_wind: f32,
-    precip_prob_max: f32,
+    pub date: Date,
+    pub weather_code: u8,
+    pub temp_max: f32,
+    pub temp_min: f32,
+    pub precip_sum: f32,
+    pub max_wind: f32,
+    pub precip_prob_max: f32,
 }
 impl WeatherData{
     
@@ -176,7 +184,7 @@ impl WeatherData{
     }
     
     
-    pub fn from_data(data: String) -> ParseResult<Vec<WeatherData>>{
+    pub fn from_data(data: String) -> ParseResult<WeatherDataMap>{
 
         let mut dates: Vec<Date> = vec![];
         let mut weather_codes: Vec<u8> = vec![];
@@ -267,12 +275,38 @@ impl WeatherData{
             weather_data.push(WeatherData::new(*date, *weather_code, *temp_max, *temp_min, *precip_sum, *wind_max, *precip_prob_max));
             i += 1;
         }
+
         
-        Ok(weather_data)
+        weather_data.sort_by(|a, b|comp_date(a, b));
+
+        let mut weather_data_map: HashMap<Date, WeatherData> = HashMap::with_capacity(weather_data.len());
+
+        for data in weather_data{
+            weather_data_map.insert(data.date, data);
+        }
+        
+        Ok(weather_data_map)
         
             
 
 
 
     }
+}
+
+
+fn comp_date(a: &WeatherData, b: &WeatherData) -> std::cmp::Ordering{
+    let a = a.date;
+    let b = b.date;
+    if a.year == b.year{
+        if a.month == b.month{
+            a.day.cmp(&b.day)
+        }else{
+            a.month.cmp(&b.month)
+        }
+    }
+    else{
+        a.year.cmp(&b.year)
+    }
+
 }

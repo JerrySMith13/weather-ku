@@ -4,7 +4,8 @@ use std::collections::HashMap;
 
 enum FileOption{
     Going(String),
-    Done(String),
+    Back,
+    Done(String)
 }
 
 fn file_path_add(path_to_add: &str) -> FileOption{
@@ -23,13 +24,29 @@ fn file_path_add(path_to_add: &str) -> FileOption{
         file_map.insert(file_name, file);
     }
 
+    let keys_to_remove: Vec<String> = file_map
+        .iter()
+        .filter(|(_, f)| f.file_type().unwrap().is_symlink())
+        .map(|(k, _)| k.clone())
+        .collect();
+    
+    keys_to_remove.iter().for_each(|k| {
+        file_map.remove(k);
+    });
+
     let file_names: Vec<String> = file_map.keys().map(|k| k.clone()).collect();
 
     let msg = format!("Select a file from {}", path_to_add);
     let msg = msg.as_str();
 
     let select_menu = Select::new(msg, file_names);
-    let selected_file = file_map.get(&select_menu.prompt().unwrap());
+    let select_option = match select_menu.prompt_skippable().unwrap(){
+            Some(option) => option,
+            None => return FileOption::Back,
+     
+    };
+    
+    let selected_file = file_map.get(select_option.as_str());
 
     match selected_file.unwrap().file_type().unwrap().is_dir(){
         true => FileOption::Going(selected_file.unwrap().file_name().to_str().unwrap().to_string()),
@@ -52,6 +69,14 @@ pub fn file_dialog(path: &str) -> String{
                 current_path.push_str(format!("/{}", path).as_str());
                 return current_path;
             },
+            FileOption::Back => {
+                current_path = match current_path.rsplit_once('/'){
+                    Some(splitted) => splitted.0.to_string(),
+                    None => {
+                        current_path
+                    }
+                };
+            }
         }
     }   
     

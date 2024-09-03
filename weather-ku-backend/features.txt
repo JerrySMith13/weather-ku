@@ -1,0 +1,4 @@
+features
+sorts dates for you
+detects errors when parsing text, tells you (generally) what to fix
+supports multiple ways of entering input with an INTERACTIVE file browser

@@ -1,5 +1,6 @@
-use std::{option, process};
+use std::process;
 use inquire::{Confirm, Editor, MultiSelect, Select};
+use parser::{Date, WeatherData, ParseError};
 mod parser;
 mod pathfinder;
 
@@ -11,7 +12,7 @@ fn exit_dialog(menu: fn()) {
         Err(_) => process::exit(1),
     }
 }
-
+// INPUT METHODS \\
 fn data_from_file(path: String){
     let data = match std::fs::read_to_string(path){
         Ok(data) => data,
@@ -22,23 +23,26 @@ fn data_from_file(path: String){
         }
     };
 
-    data_options(data.as_str());
+    data_point_options(data.as_str());
 }
 
 fn data_from_manual(){
     let editor_data = Editor::new("Enter data here:").with_help_message("Save and close the file to submit!").prompt();
     match editor_data {
         Ok(data) => {
-            data_options(data.as_str());
+            data_point_options(data.as_str());
         },
         Err(_) => start_menu(),
     }
 
 }
 
+//END INPUT METHODS\\
+
+
 fn start_menu() {
     let menu_options = vec!["Parse data from file", "Enter data manually", "Exit"];
-    let select_option = Select::new("Welcome! Select an option:", menu_options).without_filtering()
+    let select_option = Select::new("Welcome! Select an option:", menu_options)
     .prompt();
 
     match select_option {
@@ -55,19 +59,58 @@ fn start_menu() {
         
 }
 
-#[inline]
-fn parse_option(option: &str){
-    match option{
-        "Max temperature" => {
-            println!("Max temperature");
+fn data_point_options(data: &str){
+    let menu_option = vec!["Weather Code", "High Temperature", "Low Temperature", "Total Precipitation", "Highest Precipitation Chance", "Maximum Wind Speed", "Return to menu", "Exit"];
+    let select_option = Select::new("Select an data point to sample:", menu_option).prompt();
+    match select_option{
+        Ok(option) => {
+            match option{
+                "Weather Code" => {
+                    println!("Weather Code");
+                },
+                "High Temperature" => {
+                    println!("High Temperature");
+                },
+                "Low Temperature" => {
+                    println!("Low Temperature");
+                },
+                "Total Precipitation" => {
+                    println!("Total Precipitation");
+                },
+                "Highest Precipitation Chance" => {
+                    println!("Highest Precipitation Chance");
+                },
+                "Maximum Wind Speed" => {
+                    println!("Maximum Wind Speed");
+                },
+                "Return to menu" => {
+                    start_menu();
+                },
+                "Exit" => {
+                    exit_dialog(start_menu);
+                },
+                _ => {
+                    data_point_options(data);
+                },
+            }
         },
-        "Min temperature" => {
-            println!("Min temperature");
+        Err(_) => start_menu(),
+    }
+}
+
+#[inline]
+fn parse_option(option: &str, data: &str){
+    match option{
+        "Maximum" => {
+
+        },
+        "Minimum" => {
+    
         },
         "Single point" => {
             println!("Single point");
         },
-        "Average temperature" => {
+        "Average" => {
             println!("Average temperature");
         },
         "Menu" => {
@@ -77,31 +120,29 @@ fn parse_option(option: &str){
             exit_dialog(start_menu);
         },
         _ => {
-            parse_option(option);
+            operation_options(data);
         },
     }
 }
-fn data_options(data: &str){
-    println!("{}", data); 
-    // max, min, single point, average
-    let menu_options = vec!["Max temperature", "Min temperature", "Single point", "Average temperature", "Menu", "Exit"];
-    let select_option = Select::new("Select an option:", menu_options).prompt();
+fn operation_options(data: &str){
+    let menu_options = vec!["Maximum", "Minimum", "Single point", "Average", "Menu", "Exit"];
+    let select_option = Select::new("Select an operation", menu_options).prompt();
     match select_option{
-        Ok(option) => parse_option(option),
+        Ok(option) => parse_option(option, data),
         Err(_) => start_menu(),
     }
 
 }
 
-fn date_range(data: &str) -> Vec<parser::WeatherData>{
-    let data = parser::WeatherData::from_data(data.to_string());
+fn date_range(data: &str) -> Vec<WeatherData>{
+    let data = WeatherData::from_data(data.to_string());
     match data{
         Ok(data) => {
             let mut dates_to_display: Vec<String>= Vec::with_capacity(data.len());
             for node in data.values(){
                 dates_to_display.push(node.date.to_string());
             }
-            let select_options = match MultiSelect::new("Select a date:", dates_to_display).prompt(){
+            let select_options = match MultiSelect::new("Select dates to sample:", dates_to_display).prompt(){
                 Ok(options) => options,
                 Err(_) => {
                     println!("Sorry! Error Occured");
@@ -109,7 +150,7 @@ fn date_range(data: &str) -> Vec<parser::WeatherData>{
                     return Vec::new();
                 },
             };
-            let mut selected_dates: Vec<parser::WeatherData> = Vec::with_capacity(select_options.len());
+            let mut selected_dates: Vec<WeatherData> = Vec::with_capacity(select_options.len());
             for option in select_options{
                 selected_dates.push(data.get(&parser::Date::from_string(option.as_str()).unwrap()).unwrap().clone());
             }
@@ -122,48 +163,64 @@ fn date_range(data: &str) -> Vec<parser::WeatherData>{
     
 }
 
+fn display_end(msg: &str){
+    let option = Select::new(msg, vec!["Return to menu", "Exit"])
+    .prompt();
+    match option{
+        Ok(option) => {
+            match option{
+                "Return to menu" => start_menu(),
+                "Exit" => exit_dialog(start_menu),
+                _ => start_menu(),
+            }
+        },
+        Err(_) => start_menu(),
+    }
+}
+
 #[inline]
-fn handle_parse_err(error: parser::ParseError){
+fn handle_parse_err(error: ParseError){
     match error{
-        parser::ParseError::InvalidDate(date) => {
+        ParseError::InvalidDate(date) => {
             println!("Invalid date: {}", date);
             start_menu();
         },
-        parser::ParseError::InvalidWeatherCode(code) => {
+        ParseError::InvalidWeatherCode(code) => {
             println!("Invalid weather code: {}", code);
             start_menu();
         },
-        parser::ParseError::InvalidTemperature(temp) => {
+        ParseError::InvalidTemperature(temp) => {
             println!("Invalid temperature: {}", temp);
             start_menu();
         },
-        parser::ParseError::InvalidWind(wind) => {
+        ParseError::InvalidWind(wind) => {
             println!("Invalid wind: {}", wind);
             start_menu();
         },
-        parser::ParseError::InvalidPrecipitationProbability(prob) => {
+        ParseError::InvalidPrecipitationProbability(prob) => {
             println!("Invalid precipitation probability: {}", prob);
             start_menu();
         },
-        parser::ParseError::InvalidPrecipitation(sum) => {
+        ParseError::InvalidPrecipitation(sum) => {
             println!("Invalid precipitation: {}", sum);
             start_menu();
         },
-        parser::ParseError::InvalidLine(line) => {
+        ParseError::InvalidLine(line) => {
             println!("Invalid line: {}", line);
             start_menu();
         },
-        parser::ParseError::TooManyValues => {
+        ParseError::TooManyValues => {
             println!("Inconsistent number of values!");
             start_menu();
         },
-        parser::ParseError::DuplicateDate(date) => {
+        ParseError::DuplicateDate(date) => {
             println!("Duplicate date: {}", date.to_string());
             start_menu();
         }
 
     }
 }
+
 
 fn main() {
     start_menu();

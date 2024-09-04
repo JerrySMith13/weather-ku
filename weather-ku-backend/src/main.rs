@@ -1,4 +1,4 @@
-use std::process;
+use std::{option, process};
 use inquire::{Confirm, Editor, MultiSelect, Select};
 use parser::{Date, WeatherData, ParseError};
 mod parser;
@@ -98,42 +98,6 @@ fn data_point_options(data: &str){
     }
 }
 
-#[inline]
-fn parse_option(option: &str, data: &str){
-    match option{
-        "Maximum" => {
-
-        },
-        "Minimum" => {
-    
-        },
-        "Single point" => {
-            println!("Single point");
-        },
-        "Average" => {
-            println!("Average temperature");
-        },
-        "Menu" => {
-            start_menu();
-        },
-        "Exit" => {
-            exit_dialog(start_menu);
-        },
-        _ => {
-            operation_options(data);
-        },
-    }
-}
-fn operation_options(data: &str){
-    let menu_options = vec!["Maximum", "Minimum", "Single point", "Average", "Menu", "Exit"];
-    let select_option = Select::new("Select an operation", menu_options).prompt();
-    match select_option{
-        Ok(option) => parse_option(option, data),
-        Err(_) => start_menu(),
-    }
-
-}
-
 fn date_range(data: &str) -> Vec<WeatherData>{
     let data = WeatherData::from_data(data.to_string());
     match data{
@@ -161,21 +125,6 @@ fn date_range(data: &str) -> Vec<WeatherData>{
     }
 
     
-}
-
-fn display_end(msg: &str){
-    let option = Select::new(msg, vec!["Return to menu", "Exit"])
-    .prompt();
-    match option{
-        Ok(option) => {
-            match option{
-                "Return to menu" => start_menu(),
-                "Exit" => exit_dialog(start_menu),
-                _ => start_menu(),
-            }
-        },
-        Err(_) => start_menu(),
-    }
 }
 
 #[inline]

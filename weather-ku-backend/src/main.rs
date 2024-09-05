@@ -1,5 +1,6 @@
 use std::{option, process};
 use inquire::{Confirm, Editor, InquireError, MultiSelect, Select};
+use indexmap::IndexMap;
 use parser::{Date, WeatherData, ParseError};
 mod parser;
 mod pathfinder;
@@ -107,7 +108,7 @@ fn data_point_options(data: &str){
     }
 }
 
-fn date_range(data: &str, point: DataPoint) -> Vec<WeatherData>{
+fn date_range(data: &str, point: DataPoint) -> IndexMap<Date, WeatherData>{
     let data = WeatherData::from_data(data.to_string());
     match data{
         Ok(data) => {
@@ -115,16 +116,19 @@ fn date_range(data: &str, point: DataPoint) -> Vec<WeatherData>{
             for node in data.values(){
                 dates_to_display.push(node.date.to_string());
             }
-            let mut message = "Begin date: ";
-            let begin_date = match Select::new(&message, dates_to_display.clone()).prompt(){
+            let begin_date = match Select::new("Begin date: ", dates_to_display.clone()).prompt(){
                 Ok(date) => date,
-                Err(InquireError::OperationCanceled) => {exit_dialog(start_menu); return Vec::new();},
-                Err(_) => { println!("Error occured, please try again."); start_menu(); return Vec::new();},
+                Err(InquireError::OperationCanceled) => {exit_dialog(start_menu); return IndexMap::new();},
+                Err(_) => { println!("Error occured, please try again."); start_menu(); return IndexMap::new();},
             };      
-            message = format!("Begin date: {} | End date: ", begin_date).as_str();
-            vec![WeatherData::from_data(data.to_string())]
+            let end_date = match Select::new(format!("Begin date: {} | End date: ", begin_date.clone().to_string()).as_str(), dates_to_display).prompt(){
+                Ok(date) => date,
+                Err(InquireError::OperationCanceled) => {exit_dialog(start_menu); return IndexMap::new();},
+                Err(_) => { println!("Error occured, please try again."); start_menu(); return IndexMap::new();},
+            };
+            data
         },
-        Err(err) => {handle_parse_err(err); return Vec::new();},
+        Err(err) => {handle_parse_err(err); return IndexMap::new();},
     }
 
     

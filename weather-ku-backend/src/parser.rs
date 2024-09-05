@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 #[derive(Debug)]
 /// Represents an error that can occur during parsing
@@ -15,7 +15,7 @@ pub enum ParseError{
 }
 
 type ParseResult<T> = Result<T, ParseError>;
-type WeatherDataMap = HashMap<Date, WeatherData>;
+type WeatherDataMap = IndexMap<Date, WeatherData>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
 /// Struct representing a date 
@@ -279,7 +279,7 @@ impl WeatherData{
         
         weather_data.sort_by(|a, b|comp_date(a, b));
 
-        let mut weather_data_map: HashMap<Date, WeatherData> = HashMap::with_capacity(weather_data.len());
+        let mut weather_data_map: IndexMap<Date, WeatherData> = IndexMap::with_capacity(weather_data.len());
 
         for data in weather_data{
             weather_data_map.insert(data.date, data);

@@ -1,8 +1,17 @@
 use std::{option, process};
-use inquire::{Confirm, Editor, MultiSelect, Select};
+use inquire::{Confirm, Editor, InquireError, MultiSelect, Select};
 use parser::{Date, WeatherData, ParseError};
 mod parser;
 mod pathfinder;
+
+enum DataPoint{
+    WeatherCode,
+    HighTemperature,
+    LowTemperature,
+    TotalPrecipitation,
+    HighestPrecipitationChance,
+    MaximumWindSpeed,
+}
 
 fn exit_dialog(menu: fn()) {
     let exit = Confirm::new("Are you sure you want to exit?").prompt();
@@ -66,22 +75,22 @@ fn data_point_options(data: &str){
         Ok(option) => {
             match option{
                 "Weather Code" => {
-                    println!("Weather Code");
+                    date_range(data, DataPoint::WeatherCode);
                 },
                 "High Temperature" => {
-                    println!("High Temperature");
+                    date_range(data, DataPoint::HighTemperature);
                 },
                 "Low Temperature" => {
-                    println!("Low Temperature");
+                    date_range(data, DataPoint::LowTemperature);
                 },
                 "Total Precipitation" => {
-                    println!("Total Precipitation");
+                    date_range(data, DataPoint::TotalPrecipitation);
                 },
                 "Highest Precipitation Chance" => {
-                    println!("Highest Precipitation Chance");
+                    date_range(data, DataPoint::HighestPrecipitationChance);
                 },
                 "Maximum Wind Speed" => {
-                    println!("Maximum Wind Speed");
+                    date_range(data, DataPoint::MaximumWindSpeed);
                 },
                 "Return to menu" => {
                     start_menu();
@@ -98,7 +107,7 @@ fn data_point_options(data: &str){
     }
 }
 
-fn date_range(data: &str) -> Vec<WeatherData>{
+fn date_range(data: &str, point: DataPoint) -> Vec<WeatherData>{
     let data = WeatherData::from_data(data.to_string());
     match data{
         Ok(data) => {
@@ -106,20 +115,14 @@ fn date_range(data: &str) -> Vec<WeatherData>{
             for node in data.values(){
                 dates_to_display.push(node.date.to_string());
             }
-            let select_options = match MultiSelect::new("Select dates to sample:", dates_to_display).prompt(){
-                Ok(options) => options,
-                Err(_) => {
-                    println!("Sorry! Error Occured");
-                    start_menu();
-                    return Vec::new();
-                },
-            };
-            let mut selected_dates: Vec<WeatherData> = Vec::with_capacity(select_options.len());
-            for option in select_options{
-                selected_dates.push(data.get(&parser::Date::from_string(option.as_str()).unwrap()).unwrap().clone());
-            }
-            selected_dates
-                    
+            let mut message = "Begin date: ";
+            let begin_date = match Select::new(&message, dates_to_display.clone()).prompt(){
+                Ok(date) => date,
+                Err(InquireError::OperationCanceled) => {exit_dialog(start_menu); return Vec::new();},
+                Err(_) => { println!("Error occured, please try again."); start_menu(); return Vec::new();},
+            };      
+            message = format!("Begin date: {} | End date: ", begin_date).as_str();
+            vec![WeatherData::from_data(data.to_string())]
         },
         Err(err) => {handle_parse_err(err); return Vec::new();},
     }
@@ -129,6 +132,7 @@ fn date_range(data: &str) -> Vec<WeatherData>{
 
 #[inline]
 fn handle_parse_err(error: ParseError){
+    print!("Error! ");
     match error{
         ParseError::InvalidDate(date) => {
             println!("Invalid date: {}", date);

@@ -1,2 +1,0 @@
-main menu -> get data as text -> ask for data range to sample -> ask for range of dates -> ask for chosen operation
-    

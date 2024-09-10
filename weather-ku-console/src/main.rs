@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use inquire::{Confirm, Editor, InquireError, Select};
 use parser::{Date, ParseError, WeatherData};
-use std::process;
+use std::{option, process};
 mod parser;
 mod pathfinder;
 
@@ -67,7 +67,15 @@ fn data_from_file(path: String) {
         }
     };
 
-    get_options(data.as_str());
+    let weather_data = match WeatherData::from_data(data) {
+        Ok(data) => data,
+        Err(e) => {
+            handle_parse_err(e);
+            return;
+        }
+    };
+    get_options(weather_data);
+    
 }
 
 fn data_from_manual() {
@@ -101,7 +109,8 @@ fn start_menu() {
     }
 }
 
-fn data_ops(range: IndexMap<Date, WeatherData>, point: DataPoint) {
+fn data_ops(data: IndexMap<Date, WeatherData>, point: DataPoint) {
+    let range = date_range(data);
     let mut set = Vec::with_capacity(range.len());
     for data in range.values() {
         match point {
@@ -113,11 +122,12 @@ fn data_ops(range: IndexMap<Date, WeatherData>, point: DataPoint) {
             DataPoint::MaximumWindSpeed => set.push(data.max_wind),
         }
     }
-
+    let options: Vec<&str>;
     if range.len() == 1 {
-        let options = vec!["Single Point"];
+        options = vec!["Single Point"];
+    } else {
+        options = vec!["Single Point", "Average", "Minimum", "Maximum"];
     }
-    let options = vec!["Single Point", "Average", "Minimum", "Maximum"];
     let op = match Select::new("Select an operation to perform: ", options).prompt() {
         Ok(op) => op,
         Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
@@ -145,9 +155,8 @@ fn data_ops(range: IndexMap<Date, WeatherData>, point: DataPoint) {
     }
 }
 
-fn get_options(data: &str) {
-    let range = date_range(&data);
-
+fn get_options(data: IndexMap<Date, WeatherData>) {
+    
     let options = vec![
         "Weather Code",
         "High Temperature",
@@ -169,12 +178,12 @@ fn get_options(data: &str) {
         }
     };
     match select {
-        "Weather Code" => {}
-        "High Temperature" => {}
-        "Low Temperature" => {}
-        "Total Precipitation" => {}
-        "Highest Precipitation Chance" => {}
-        "Maximum Wind Speed" => {}
+        "Weather Code" => {data_ops(data, DataPoint::WeatherCode);}
+        "High Temperature" => {data_ops(data, DataPoint::HighTemperature);}
+        "Low Temperature" => {data_ops(data, DataPoint::LowTemperature);}
+        "Total Precipitation" => {data_ops(data, DataPoint::TotalPrecipitation);}
+        "Highest Precipitation Chance" => {data_ops(data, DataPoint::HighestPrecipitationChance);}
+        "Maximum Wind Speed" => {data_ops(data, DataPoint::MaximumWindSpeed);}
         _ => {
             println!("Invalid option! Please try again");
             get_options(data);
@@ -182,75 +191,66 @@ fn get_options(data: &str) {
     }
 }
 
-fn date_range(data: &str) -> IndexMap<Date, WeatherData> {
-    let data = WeatherData::from_data(data.to_string());
-    match data {
-        Ok(data) => {
-            let mut dates_to_display: Vec<String> = Vec::with_capacity(data.len());
-            for node in data.values() {
-                dates_to_display.push(node.date.to_string());
-            }
-            let begin_date = match Select::new("Begin date: ", dates_to_display.clone()).prompt() {
-                Ok(date) => date,
-                Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
-                    exit_dialog(start_menu);
-                    return IndexMap::new();
-                }
-                Err(_) => {
-                    println!("Error occured, please try again.");
-                    start_menu();
-                    return IndexMap::new();
-                }
-            };
-
-            // Ensures that only selectable dates are displayed
-            for i in 0..dates_to_display.len() {
-                if dates_to_display[i] == begin_date {
-                    dates_to_display.drain(0..i);
-                    break;
-                }
-            }
-
-            let end_date = match Select::new(
-                format!(
-                    "Begin date: {} | End date: ",
-                    begin_date.clone().to_string()
-                )
-                .as_str(),
-                dates_to_display,
-            )
-            .prompt()
-            {
-                Ok(date) => date,
-                Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
-                    exit_dialog(start_menu);
-                    return IndexMap::new();
-                }
-                Err(_) => {
-                    println!("Error occured, please try again.");
-                    start_menu();
-                    return IndexMap::new();
-                }
-            };
-
-            let start_point = data
-                .get_index_of(&Date::from_string(&begin_date).unwrap())
-                .unwrap();
-            let end_point = data
-                .get_index_of(&Date::from_string(&end_date).unwrap())
-                .unwrap();
-            let range = data.get_range(start_point..end_point + 1).unwrap();
-            let range = range
-                .into_iter()
-                .map(|(date, data)| (date.clone(), data.clone()))
-                .collect();
-            range
-        }
-        Err(err) => {
-            handle_parse_err(err);
+fn date_range(data: IndexMap<Date, WeatherData>) -> IndexMap<Date, WeatherData> {
+    let mut dates_to_display: Vec<String> = Vec::with_capacity(data.len());
+    for node in data.values() {
+        dates_to_display.push(node.date.to_string());
+    }
+    let begin_date = match Select::new("Begin date: ", dates_to_display.clone()).prompt() {
+        Ok(date) => date,
+        Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
+            exit_dialog(start_menu);
             return IndexMap::new();
         }
+        Err(_) => {
+            println!("Error occured, please try again.");
+            start_menu();
+            return IndexMap::new();
+        }
+    };
+
+    // Ensures that only selectable dates are displayed
+    for i in 0..dates_to_display.len() {
+        if dates_to_display[i] == begin_date {
+            dates_to_display.drain(0..i);
+            break;
+        }
     }
+
+    let end_date = match Select::new(
+        format!(
+            "Begin date: {} | End date: ",
+            begin_date.clone().to_string()
+        )
+        .as_str(),
+        dates_to_display,
+    )
+    .prompt()
+    {
+        Ok(date) => date,
+        Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
+            exit_dialog(start_menu);
+            return IndexMap::new();
+        }
+        Err(_) => {
+            println!("Error occured, please try again.");
+            start_menu();
+            return IndexMap::new();
+        }
+    };
+
+    let start_point = data
+        .get_index_of(&Date::from_string(&begin_date).unwrap())
+        .unwrap();
+    let end_point = data
+        .get_index_of(&Date::from_string(&end_date).unwrap())
+        .unwrap();
+    let range = data.get_range(start_point..end_point + 1).unwrap();
+    let range = range
+        .into_iter()
+        .map(|(date, data)| (date.clone(), data.clone()))
+        .collect();
+    range
 }
 
 #[inline]

@@ -1,10 +1,11 @@
 use indexmap::IndexMap;
 use inquire::{Confirm, Editor, InquireError, Select};
 use parser::{Date, ParseError, WeatherData};
-use std::{option, process};
+use std::process;
 mod parser;
 mod pathfinder;
 
+#[derive(Eq, PartialEq, Clone, Copy)]
 enum DataPoint {
     WeatherCode,
     HighTemperature,
@@ -12,6 +13,18 @@ enum DataPoint {
     TotalPrecipitation,
     HighestPrecipitationChance,
     MaximumWindSpeed,
+}
+impl DataPoint{
+    fn to_string(&self) -> String{
+        match self{
+            DataPoint::WeatherCode => "Weather Code".to_string(),
+            DataPoint::HighTemperature => "High Temperature".to_string(),
+            DataPoint::LowTemperature => "Low Temperature".to_string(),
+            DataPoint::TotalPrecipitation => "Total Precipitation".to_string(),
+            DataPoint::HighestPrecipitationChance => "Highest Precipitation Chance".to_string(),
+            DataPoint::MaximumWindSpeed => "Maximum Wind Speed".to_string(),
+        }
+    }
 }
 // OPERATIONS \\
 #[inline]
@@ -110,11 +123,11 @@ fn start_menu() {
 }
 
 fn data_ops(data: IndexMap<Date, WeatherData>, point: DataPoint) {
-    let range = date_range(data);
+    let range = date_range(&data);
     let mut set = Vec::with_capacity(range.len());
     for data in range.values() {
         match point {
-            DataPoint::WeatherCode => {}
+            DataPoint::WeatherCode => {set.push(data.weather_code as f32);}
             DataPoint::HighTemperature => set.push(data.temp_max),
             DataPoint::LowTemperature => set.push(data.temp_min),
             DataPoint::TotalPrecipitation => set.push(data.precip_sum),
@@ -123,7 +136,7 @@ fn data_ops(data: IndexMap<Date, WeatherData>, point: DataPoint) {
         }
     }
     let options: Vec<&str>;
-    if range.len() == 1 {
+    if range.len() == 1 || point == DataPoint::WeatherCode {
         options = vec!["Single Point"];
     } else {
         options = vec!["Single Point", "Average", "Minimum", "Maximum"];
@@ -140,19 +153,70 @@ fn data_ops(data: IndexMap<Date, WeatherData>, point: DataPoint) {
             return;
         }
     };
-    match op {
-        "Single Point" => {}
+    let message = match op {
+        "Single Point" => {single_point_select(range, point)}
         "Average" => {
             let avg = avg(set);
-            println!("Average: {}", avg);
+            format!("Average {} from {} to {}: {}", point.to_string(), range.first().unwrap().0.to_string(), range.last().unwrap().0.to_string(), avg)
         }
-        "Minimum" => {}
-        "Maximum" => {}
+        "Minimum" => {
+            let min: f32 = min(set);
+            format!("Average {} from {} to {}: {}", point.to_string(), range.first().unwrap().0.to_string(), range.last().unwrap().0.to_string(), min)
+        }
+        "Maximum" => {
+            let max = max(set);
+            format!("Average {} from {} to {}: {}", point.to_string(), range.first().unwrap().0.to_string(), range.last().unwrap().0.to_string(), max)
+        }
         _ => {
             println!("Invalid option! Please try again");
-            data_ops(range, point);
+            data_ops(data, point);
+            return;
         }
+    };
+    let final_menu = Select::new(message.as_str(), vec!["Try Different Operation", "Select New Datapoint", "Return To Main Menu", "Exit"]).prompt();
+    match final_menu {
+        Ok(option) => match option {
+            "Try Different Operation" => data_ops(data, point),
+            "Select New Datapoint" => get_options(data),
+            "Return To Main Menu" => start_menu(),
+            "Exit" => exit_dialog(start_menu),
+            _ => {
+                println!("Invalid option! Please try again");
+                data_ops(data, point);
+            }
+        },
+        Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
+            exit_dialog(start_menu);
+        }
+        Err(_) => start_menu(),
     }
+}
+
+fn single_point_select(range: IndexMap<Date, &WeatherData>, point: DataPoint) -> String {
+    let point_str = point.to_string();
+    let options = range.keys().map(|date| date.to_string()).collect();
+    let date = match Select::new("Select a date to sample: ", options).prompt() {
+        Ok(date) => date,
+        Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
+            exit_dialog(start_menu);
+            return "".to_string();
+        }
+        Err(_) => {
+            println!("Error occured, please try again.");
+            start_menu();
+            return "".to_string();
+        }
+    };
+    let data = range.get(&Date::from_string(&date).unwrap()).unwrap();
+    let data = match point {
+        DataPoint::WeatherCode => data.weather_code.to_string(),
+        DataPoint::HighTemperature => data.temp_max.to_string(),
+        DataPoint::LowTemperature => data.temp_min.to_string(),
+        DataPoint::TotalPrecipitation => data.precip_sum.to_string(),
+        DataPoint::HighestPrecipitationChance => data.precip_prob_max.to_string(),
+        DataPoint::MaximumWindSpeed => data.max_wind.to_string(),
+    };
+    return format!("{} for {}: {}", point_str, date, data);
 }
 
 fn get_options(data: IndexMap<Date, WeatherData>) {
@@ -191,7 +255,7 @@ fn get_options(data: IndexMap<Date, WeatherData>) {
     }
 }
 
-fn date_range(data: IndexMap<Date, WeatherData>) -> IndexMap<Date, WeatherData> {
+fn date_range(data: &IndexMap<Date, WeatherData>) -> IndexMap<Date, &WeatherData> {
     let mut dates_to_display: Vec<String> = Vec::with_capacity(data.len());
     for node in data.values() {
         dates_to_display.push(node.date.to_string());
@@ -246,9 +310,9 @@ fn date_range(data: IndexMap<Date, WeatherData>) -> IndexMap<Date, WeatherData> 
         .get_index_of(&Date::from_string(&end_date).unwrap())
         .unwrap();
     let range = data.get_range(start_point..end_point + 1).unwrap();
-    let range = range
+    let range: IndexMap<Date, &WeatherData> = range
         .into_iter()
-        .map(|(date, data)| (date.clone(), data.clone()))
+        .map(|(date, data)| (date.clone(), data))
         .collect();
     range
 }

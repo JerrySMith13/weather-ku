@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use inquire::{Confirm, Editor, InquireError, Select};
 use parser::{Date, ParseError, WeatherData};
 use std::process;
-mod parser;
+
 mod pathfinder;
 
 #[derive(Eq, PartialEq, Clone, Copy)]
@@ -91,6 +91,7 @@ fn data_from_file(path: String) {
     
 }
 
+//FIXME
 fn data_from_manual() {
     let editor_data = Editor::new("Enter data here:")
         .with_help_message("Save and close the file to submit!")

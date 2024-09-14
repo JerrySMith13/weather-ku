@@ -12,11 +12,31 @@ use tokio::net::TcpListener;
 
 use parser::{Date, WeatherData};
 
+/// Returns empty body
+fn empty() -> BoxBody<Bytes, hyper::Error> {
+    Empty::<Bytes>::new()
+        .map_err(|never| match never {})
+        .boxed()
+}
+
+/// Returns a body with chunk
+fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, hyper::Error> {
+    Full::new(chunk.into())
+        .map_err(|never| match never {})
+        .boxed()
+}
+
 async fn handle_req(req: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
     match req.method(){
         &hyper::Method::GET => {
             let body = Bytes::from("Hello, World!");
             Ok(Response::new(Full::new(body)))
+        }
+        _ => {
+            let body = Bytes::from("Method not allowed");
+            let mut res = Response::new(Full::new(body));
+            *res.status_mut() = hyper::StatusCode::METHOD_NOT_ALLOWED;
+            Ok(res)
         }
     }
     

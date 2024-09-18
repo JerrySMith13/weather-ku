@@ -16,14 +16,15 @@ use http_body_util::{combinators::BoxBody, BodyExt};
 
 use indexmap::IndexMap;
 
-use parser::{Date, TakeRange, WeatherData, WeatherDataMap};
+use parser::{DataOps, Date, WeatherData, WeatherDataMap};
 
 fn startup() -> Arc<RwLock<WeatherDataMap>>{
     println!("Starting weather-ku-api server from specified file path");
     let args = std::env::args();
-    let file_path = args.skip(1).next().expect("Please provide a file path");
-    let file_str = std::fs::read_to_string(file_path).expect("Failed to read file");
-    let data = WeatherData::from_data(file_str).expect("Failed to parse data (check file for errors)");
+    let file_path = args.skip(1).next().expect("Error: No file path in arguments");
+    println!("File path: {}", file_path);
+    let file_str = std::fs::read_to_string(file_path).expect("Error: Failed to read file");
+    let data = WeatherData::from_data(file_str).expect("Error: Failed to parse data (check file for errors)");
     println!("Data loaded successfully!");
     return Arc::new(RwLock::new(data));
 }
@@ -98,18 +99,32 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                         .unwrap());
                 }
             };
-
             
+            let mut points: Vec<parser::DataPoint> = Vec::new();
+            if let Some(options) = query_map.get("values"){
+
+                let points_str: Vec<&str> = options.split(',').collect();
+                points = Vec::with_capacity(points_str.len());
+                
+                for point in points_str{
+                    match point{
+                        "weather_code" => points.push(parser::DataPoint::WeatherCode),
+                        "temp_max" => points.push(parser::DataPoint::TemperatureMax),
+                        "temp_min" => points.push(parser::DataPoint::TemperatureMin),
+                        "precip_sum" => points.push(parser::DataPoint::PrecipitationSum),
+                        "max_wind" => points.push(parser::DataPoint::WindSpeedMax),
+                        "prob_precip_max" => points.push(parser::DataPoint::PrecipitationProbabilityMax),
+                        _ => return Ok(Response::builder()
+                            .status(StatusCode::BAD_REQUEST)
+                            .body(empty())
+                            .unwrap())
+                    }
+                }
+            }
             
-
-            
-
-
-            
-        
-
-
-            
+            let mut body = Response::new(full(map.json(points)));
+            *body.status_mut() = StatusCode::OK;
+            return Ok(body);
         }
         _ => {
             return Ok(Response::builder()

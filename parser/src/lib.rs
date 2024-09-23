@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use indexmap::IndexMap;
 
 #[derive(Debug)]
@@ -14,10 +16,57 @@ pub enum ParseError{
     DuplicateDate(Date),
 }
 
-type ParseResult<T> = Result<T, ParseError>;
-type WeatherDataMap = IndexMap<Date, WeatherData>;
+#[derive(PartialEq, Eq, Hash)]
+pub enum DataPoint{
+    WeatherCode,
+    TemperatureMax,
+    TemperatureMin,
+    PrecipitationSum,
+    WindSpeedMax,
+    PrecipitationProbabilityMax
+}
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
+pub type ParseResult<T> = Result<T, ParseError>;
+pub type WeatherDataMap = IndexMap<Date, WeatherData>;
+
+pub trait DataOps{
+    fn take_range(&self, begin: &Date, end: &Date) -> Option<WeatherDataMap>;
+    fn json(self, points: HashSet<DataPoint>) -> String;
+}
+
+impl DataOps for WeatherDataMap{
+    fn take_range(&self, begin: &Date, end: &Date) -> Option<WeatherDataMap>{
+        let begin_index = match self.get_index_of(begin){
+            Some(index) => index,
+            None => return None,
+        };
+        let end_index = match self.get_index_of(end){
+            Some(index) => index,
+            None => return None,
+        };
+
+        let mut map: WeatherDataMap = IndexMap::with_capacity(begin_index.abs_diff(end_index) as usize);
+
+        for (date, data) in self.iter(){
+            if date >= begin && date <= end{
+                map.insert(*date, data.clone());
+            }
+        }
+        Some(map)
+    }
+    fn json(self, mut options: HashSet<DataPoint>) -> String{
+        let mut json = String::from("[");
+        for (_, data) in self.iter(){
+            json.push_str(&data.json(&mut options));
+            json.push_str(",");
+        }
+        json.remove(json.rfind(',').unwrap());
+        json.push_str("]");
+        json
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq, PartialOrd, Ord)]
 /// Struct representing a date 
 pub struct Date{
     year: u32,
@@ -52,6 +101,12 @@ impl Date{
     }
     pub fn to_string(&self) -> String{
         format!("{}-{}-{}", self.year, self.month, self.day)
+    }
+    pub fn distance(begin: &Date, end: &Date) -> u32{
+        let tot_days_1 = begin.year * 365 + begin.month as u32 * 30 + begin.day as u32;
+        let tot_days_2 = end.year * 365 + end.month as u32 * 30 + end.day as u32;
+        tot_days_2.abs_diff(tot_days_1)
+        
     }
 }
 
@@ -281,12 +336,31 @@ impl WeatherData{
         }
         
         Ok(weather_data_map)
-        
-            
-
-
-
     }
+
+    fn json(&self, points: &mut HashSet<DataPoint>) -> String{
+        if points.is_empty(){
+            *points = vec![DataPoint::WeatherCode, DataPoint::TemperatureMax, DataPoint::TemperatureMin, DataPoint::PrecipitationSum, DataPoint::WindSpeedMax, DataPoint::PrecipitationProbabilityMax].into_iter().collect();
+        }
+        let mut json = String::from("{");
+        json.push_str(&format!("\"date\":\"{}\",", self.date.to_string()));
+        for point in points.iter(){
+            match point{
+                DataPoint::WeatherCode => json.push_str(&format!("\"weather_code\":{},", self.weather_code)),
+                DataPoint::TemperatureMax => json.push_str(&format!("\"temperature_max\":{},", self.temp_max)),
+                DataPoint::TemperatureMin => json.push_str(&format!("\"temperature_min\":{},", self.temp_min)),
+                DataPoint::PrecipitationSum => json.push_str(&format!("\"precipitation_sum\":{},", self.precip_sum)),
+                DataPoint::WindSpeedMax => json.push_str(&format!("\"wind_speed_max\":{},", self.max_wind)),
+                DataPoint::PrecipitationProbabilityMax => json.push_str(&format!("\"precipitation_probability_max\":{},", self.precip_prob_max)),
+                
+            }
+        }
+        // Removes trailing comma
+        json.remove(json.rfind(',').unwrap());
+        json.push_str("}");
+        json
+    }
+
 }
 
 

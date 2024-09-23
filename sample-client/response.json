@@ -1,0 +1,22 @@
+[
+    {
+        "date": "2024-4-26",
+        "temperature_max": 54.9464,
+        "temperature_min": 44.2364
+    },
+    {
+        "date": "2024-4-27",
+        "temperature_max": 52.2464,
+        "temperature_min": 47.9264
+    },
+    {
+        "date": "2024-4-28",
+        "temperature_max": 52.6064,
+        "temperature_min": 42.796402
+    },
+    {
+        "date": "2024-4-29",
+        "temperature_max": 48.4664,
+        "temperature_min": 40.0064
+    }
+]

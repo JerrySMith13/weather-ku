@@ -1,22 +1,22 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::net::SocketAddr;
-use std::ops::IndexMut;
 use std::sync::{Arc, RwLock};
+use std::any::{Any, TypeId};
 
 use http_body_util::{Full, Empty};
-use hyper::body::Bytes;
+use hyper::body::{Body, Bytes};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
+use serde_json::{json, Value};
 use tokio::net::TcpListener;
-use hyper::body::Frame;
 use hyper::{Method, StatusCode};
 use http_body_util::{combinators::BoxBody, BodyExt};
 
-use indexmap::IndexMap;
-
 use parser::{DataOps, Date, WeatherData, WeatherDataMap};
+
+
 
 fn startup() -> Arc<RwLock<WeatherDataMap>>{
     println!("Starting weather-ku-api server from specified file path");
@@ -35,13 +35,27 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
     match method {
         &Method::GET => {
             let path = uri.path();
-            if !path.starts_with("/q?"){
+            if !path.starts_with("/q"){
                 return Ok(Response::builder()
                     .status(StatusCode::NOT_FOUND)
-                    .body(empty())
-                    .unwrap());
+                    .body(full("Error: path does not exist"))
+                    .unwrap_or_else(|e| {
+                        eprintln!("Failed to build response: {}", e);
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(empty())
+                            .unwrap()
+                    }));
             }
-            let query = uri.query().unwrap();
+            let query = match uri.query(){
+                Some(query) => query,
+                None => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full("Error: query required"))
+                        .unwrap());
+                }
+            };
             let query_parts: Vec<&str> = query.split('&').collect();
             let mut query_map: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
             
@@ -53,13 +67,13 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
             if query_map.len() > 2 || !query_map.contains_key("date"){
                 return Ok(Response::builder()
                     .status(StatusCode::BAD_REQUEST)
-                    .body(empty())
+                    .body(full("Error: invalid query (only date and values allowed)"))
                     .unwrap());
             }
             else if query_map.len() == 2 && !query_map.contains_key("values"){
                 return Ok(Response::builder()
                     .status(StatusCode::BAD_REQUEST)
-                    .body(empty())
+                    .body(full("Error: invalid query (only date and values allowed)"))
                     .unwrap());
             }
             let date_str = *query_map.get("date").unwrap();
@@ -68,7 +82,7 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
             if split.len() != 2{
                 return Ok(Response::builder()
                     .status(StatusCode::BAD_REQUEST)
-                    .body(empty())
+                    .body(full("Date field must be in format YYYY-MM-DD%20YYYY-MM-DD"))
                     .unwrap());
             }
             let begin_date = match Date::from_string(split[0]){
@@ -76,7 +90,7 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                 Err(_) => {
                     return Ok(Response::builder()
                         .status(StatusCode::BAD_REQUEST)
-                        .body(empty())
+                        .body(full("Error: invalid date format"))
                         .unwrap());
                 }
             };
@@ -85,7 +99,7 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                 Err(_) => {
                     return Ok(Response::builder()
                         .status(StatusCode::BAD_REQUEST)
-                        .body(empty())
+                        .body(full("Error: invalid date format"))
                         .unwrap());
                 }
             };
@@ -95,36 +109,158 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                 None => {
                     return Ok(Response::builder()
                         .status(StatusCode::RANGE_NOT_SATISFIABLE)
-                        .body(empty())
+                        .body(full("Error: No date found for either begin or end date"))
                         .unwrap());
                 }
             };
             
-            let mut points: Vec<parser::DataPoint> = Vec::new();
-            if let Some(options) = query_map.get("values"){
-
+            let mut points: HashSet<parser::DataPoint> = HashSet::new();
+            if let Some(options) = query_map.get("values") {
                 let points_str: Vec<&str> = options.split(',').collect();
-                points = Vec::with_capacity(points_str.len());
-                
-                for point in points_str{
-                    match point{
-                        "weather_code" => points.push(parser::DataPoint::WeatherCode),
-                        "temp_max" => points.push(parser::DataPoint::TemperatureMax),
-                        "temp_min" => points.push(parser::DataPoint::TemperatureMin),
-                        "precip_sum" => points.push(parser::DataPoint::PrecipitationSum),
-                        "max_wind" => points.push(parser::DataPoint::WindSpeedMax),
-                        "prob_precip_max" => points.push(parser::DataPoint::PrecipitationProbabilityMax),
-                        _ => return Ok(Response::builder()
+                points= HashSet::with_capacity(points_str.len());
+            
+                for point in points_str {
+                    match point {
+                        "weather_code" => points.insert(parser::DataPoint::WeatherCode),
+                        "temp_max" => points.insert(parser::DataPoint::TemperatureMax),
+                        "temp_min" => points.insert(parser::DataPoint::TemperatureMin),
+                        "precip_sum" => points.insert(parser::DataPoint::PrecipitationSum),
+                        "max_wind" => points.insert(parser::DataPoint::WindSpeedMax),
+                        "prob_precip_max" => points.insert(parser::DataPoint::PrecipitationProbabilityMax),
+                        _ => {
+                            return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(full("Error: invalid value field (check docs for valid values)"))
+                                .unwrap())
+                        }
+                    };
+                }
+            }
+            let json = map.json(points);
+            let body = Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "application/json")
+                .header("Content-Length", format!("{}", json.len()))
+                .body(full(json))
+                .unwrap();
+            return Ok(body);
+        }
+        &Method::POST => {
+            let uri = req.uri();
+            if uri.path() != "/" || uri.query() != None {
+                return Ok(Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(full("Error: path should be empty, no queries accepted"))
+                    .unwrap());
+            }
+            if req.headers().get("content-type") != Some(&"application/json".parse().unwrap()){
+                return Ok(Response::builder()
+                    .status(StatusCode::UNSUPPORTED_MEDIA_TYPE)
+                    .body(full("Error: content-type must be application/json, content-type header REQUIRED"))
+                    .unwrap());
+            }
+            let body = match String::from_utf8(req.collect().await?.to_bytes().to_vec()){
+                Ok(body) => body,
+                Err(_) => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::UNSUPPORTED_MEDIA_TYPE)
+                        .body(full("Error: body must be valid utf-8 text"))
+                        .unwrap());
+                }
+            };
+
+            let data: Vec<Value> = match serde_json::from_str(&body){
+                Ok(Value::Array(data)) => data,
+                Ok(_) => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full("Error: body must be a json array"))
+                        .unwrap());
+                }
+                Err(_) => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full("Error: body must be valid json"))
+                        .unwrap());
+                    
+                }
+            };
+
+            let points = vec!["date", "weather_code", "temperature_max", "temperature_min", "precipitation_sum", "wind_speed_max", "precipitation_probability_max"];
+
+            for item in data{
+                let mut date: Date = Date::from_string("0-0-0").unwrap();
+                let mut temp_max: f64 = 0.0;
+                let mut temp_min: f64 = 0.0;
+                let mut precip_sum: f64 = 0.0;
+                let mut wind_speed_max: f64 = 0.0;
+                let mut precip_prob_max: f64 = 0.0;
+                let mut weather_code: u8 = 0;
+
+                let item_obj = match item.as_object(){
+                    Some(obj) => obj,
+                    None => {
+                        return Ok(Response::builder()
                             .status(StatusCode::BAD_REQUEST)
-                            .body(empty())
-                            .unwrap())
+                            .body(full("Error: body must be a JSON array of objects"))
+                            .unwrap());
+                    }
+                };
+
+                for point in points.iter(){
+                    match *point {
+                        "date" => {
+                            let date_str = match item_obj.get("date"){
+                                Some(date) => date,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: date field required"))
+                                        .unwrap());
+                                }
+                            };
+                            let date_str = match date_str.as_str(){
+                                Some(date) => date,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: date field must be a string"))
+                                        .unwrap());
+                                }
+                            };
+                            match Date::from_string(date_str){
+                                Ok(new_date) => date = new_date,
+                                Err(_) => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: date field must be in format YYYY-MM-DD"))
+                                        .unwrap());
+                                }
+                            }
+                        },
+                        "weather_code" => {
+                            
+                        },
+                        "temperature_max" => {},
+                        "temperature_min" => {},
+                        "precipitation_sum" => {},
+                        "wind_speed_max" => {},
+                        "precipitation_probability_max" => {},
+                        _ => {
+                            return Ok(Response::builder()
+                                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                .body(full("Error: Please try again"))
+                                .unwrap());
+                        }
+
                     }
                 }
             }
-            
-            let mut body = Response::new(full(map.json(points)));
-            *body.status_mut() = StatusCode::OK;
-            return Ok(body);
+            return Ok(Response::builder()
+                .status(StatusCode::OK)
+                .body(full("Data successfully added"))
+                .unwrap());
+
         }
         _ => {
             return Ok(Response::builder()
@@ -133,9 +269,6 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                 .unwrap());
         }
     }
-
-
-    Ok(Response::new(full("Hello, World!")))
 }
 
 fn full<T: Into<Bytes>>(buf: T) -> BoxBody<Bytes, hyper::Error>{

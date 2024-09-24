@@ -1,22 +1,187 @@
 use std::collections::HashSet;
+use std::fs::OpenOptions;
+use std::io::{Read, Write, Seek, SeekFrom};
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
-use std::any::{Any, TypeId};
+
 
 use http_body_util::{Full, Empty};
-use hyper::body::{Body, Bytes};
+use hyper::body::Bytes;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
-use serde_json::{json, Value};
+use indexmap::IndexMap;
+use serde_json::Value;
 use tokio::net::TcpListener;
 use hyper::{Method, StatusCode};
 use http_body_util::{combinators::BoxBody, BodyExt};
 
-use parser::{DataOps, Date, WeatherData, WeatherDataMap};
+use parser::{DataPoint, DataOps, Date, WeatherData, WeatherDataMap};
+
+#[inline]
+fn add_data(point: DataPoint, points: &WeatherDataMap) -> String{
+    let mut data = String::new();
+    match point{
+        DataPoint::WeatherCode => {
+            for (_, weather_data) in points.iter(){
+                data.push_str(&format!(" {}",weather_data.weather_code));
+            }
+            return data;
+        },
+        DataPoint::TemperatureMax => {
+            for (_, weather_data) in points.iter(){
+                data.push_str(&format!(" {}",weather_data.temp_max));
+            }
+            return data;
+        },
+        DataPoint::TemperatureMin => {
+            for (_, weather_data) in points.iter(){
+                data.push_str(&format!(" {}",weather_data.temp_min));
+            }
+            return data;
+        },
+        DataPoint::PrecipitationSum => {
+            for (_, weather_data) in points.iter(){
+                data.push_str(&format!(" {}",weather_data.precip_sum));
+            }
+            return data;
+        },
+        DataPoint::WindSpeedMax => {
+            for (_, weather_data) in points.iter(){
+                data.push_str(&format!(" {}",weather_data.max_wind));
+            }
+            return data;
+        },
+        DataPoint::PrecipitationProbabilityMax => {
+            for (_, weather_data) in points.iter(){
+                data.push_str(&format!(" {}",weather_data.precip_prob_max));
+            }
+            return data;
+        }
+        DataPoint::Date => {
+            for (weather_data, _) in points.iter(){
+                data.push_str(&format!(" {}", weather_data.to_string()));
+            }
+            return data;
+        }
 
 
+    }
+}
+
+/// REQUIRES NO DUPLICATE DATES
+fn sync_file(new_data: WeatherDataMap){
+    let args = std::env::args();
+    let path = args.skip(1).next().expect("Error: No file path in arguments");
+    let mut position = 0;
+    
+    let mut file = match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path){
+            Ok(file) => file,
+            Err(_) => {
+                panic!("Error: Failed to open file");
+            }
+        };
+    
+    let mut file_str = String::new();
+    match file.read_to_string(&mut file_str){
+        Ok(_) => {},
+        Err(_) => {
+            panic!("Error: Failed to read file (file must contain ONLY valid UTF-8 text)");
+        }
+    };
+    let lines = file_str.split('\n');
+    for line in lines{
+        if line.trim() == ""{
+            continue;
+        }
+        let split: Vec<&str> = line.split(':').collect();
+        if split.len() != 2{
+            panic!("Error: Invalid file format");
+        }
+        position += split[0].len() + split[1].len() + 1;
+        match file.seek(SeekFrom::Start(position as u64)){
+            Ok(_) => {},
+            Err(_) => panic!("Error writing to file"),
+        };
+        match split[0]{
+            "date" => {
+                match file.write_all(add_data(DataPoint::Date, &new_data).as_bytes()){
+                    Ok(_) => {},
+                    Err(_) => {
+                        panic!("Error: Failed to write to file");
+                    }
+                };
+            },
+            "weather_code" => {
+                match file.write_all(add_data(DataPoint::WeatherCode, &new_data).as_bytes()){
+                    Ok(_) => {},
+                    Err(_) => {
+                        panic!("Error: Failed to write to file");
+                    }
+                };
+            },
+            "temperature_max" => {
+                match file.write_all(add_data(DataPoint::TemperatureMax, &new_data).as_bytes()){
+                    Ok(_) => {},
+                    Err(_) => {
+                        panic!("Error: Failed to write to file");
+                    }
+                };
+            },
+            "temperature_min" => {
+                match file.write_all(add_data(DataPoint::TemperatureMin, &new_data).as_bytes()){
+                    Ok(_) => {},
+                    Err(_) => {
+                        panic!("Error: Failed to write to file");
+                    }
+                };
+            },
+            "precipitation_sum" => {
+                match file.write_all(add_data(DataPoint::PrecipitationSum, &new_data).as_bytes()){
+                    Ok(_) => {},
+                    Err(_) => {
+                        panic!("Error: Failed to write to file");
+                    }
+                };
+            },
+            "wind_speed_max" => {
+                match file.write_all(add_data(DataPoint::WindSpeedMax, &new_data).as_bytes()){
+                    Ok(_) => {},
+                    Err(_) => {
+                        panic!("Error: Failed to write to file");
+                    }
+                };
+            },
+            "precipitation_probability_max" => {
+                match file.write_all(add_data(DataPoint::PrecipitationProbabilityMax, &new_data).as_bytes()){
+                    Ok(_) => {},
+                    Err(_) => {
+                        panic!("Error: Failed to write to file");
+                    }
+                };
+            },
+            _ => {
+                panic!("Error: Invalid file format");
+            }
+
+        }
+    }
+
+    /*
+    Find out which line of data it is
+    go to end of line
+    write new data
+     */
+    
+
+
+    
+       
+}
 
 fn startup() -> Arc<RwLock<WeatherDataMap>>{
     println!("Starting weather-ku-api server from specified file path");
@@ -169,7 +334,7 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                 }
             };
 
-            let data: Vec<Value> = match serde_json::from_str(&body){
+            let values: Vec<Value> = match serde_json::from_str(&body){
                 Ok(Value::Array(data)) => data,
                 Ok(_) => {
                     return Ok(Response::builder()
@@ -187,14 +352,14 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
             };
 
             let points = vec!["date", "weather_code", "temperature_max", "temperature_min", "precipitation_sum", "wind_speed_max", "precipitation_probability_max"];
-
-            for item in data{
+            let mut to_add: WeatherDataMap = IndexMap::with_capacity(values.len());
+            for item in values{
                 let mut date: Date = Date::from_string("0-0-0").unwrap();
-                let mut temp_max: f64 = 0.0;
-                let mut temp_min: f64 = 0.0;
-                let mut precip_sum: f64 = 0.0;
-                let mut wind_speed_max: f64 = 0.0;
-                let mut precip_prob_max: f64 = 0.0;
+                let mut temp_max: f32 = 0.0;
+                let mut temp_min: f32 = 0.0;
+                let mut precip_sum: f32 = 0.0;
+                let mut wind_speed_max: f32 = 0.0;
+                let mut precip_prob_max: f32 = 0.0;
                 let mut weather_code: u8 = 0;
 
                 let item_obj = match item.as_object(){
@@ -228,24 +393,156 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                                         .unwrap());
                                 }
                             };
-                            match Date::from_string(date_str){
-                                Ok(new_date) => date = new_date,
+                            let new_date = match Date::from_string(date_str){
+                                Ok(new_date) => new_date,
                                 Err(_) => {
                                     return Ok(Response::builder()
                                         .status(StatusCode::BAD_REQUEST)
                                         .body(full("Error: date field must be in format YYYY-MM-DD"))
                                         .unwrap());
                                 }
+                            };
+                            if data.read().unwrap().contains_key(&new_date){
+                                return Ok(Response::builder()
+                                    .status(StatusCode::BAD_REQUEST)
+                                    .body(full("Error: date already exists"))
+                                    .unwrap());
                             }
+                            date = new_date;
                         },
                         "weather_code" => {
-                            
+                            let code = match item_obj.get("weather_code"){
+                                Some(code) => code,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: weather_code field required"))
+                                        .unwrap());
+                                }
+                            };
+                            let code = match code.as_u64() {
+                                Some(code) => if code > 255 {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: weather_code field must be a number between 0 and 100"))
+                                        .unwrap());
+                                } else {
+                                    code
+                                },
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: weather_code field must be a number"))
+                                        .unwrap());
+                                }
+                            };
+                            weather_code = code as u8;
                         },
-                        "temperature_max" => {},
-                        "temperature_min" => {},
-                        "precipitation_sum" => {},
-                        "wind_speed_max" => {},
-                        "precipitation_probability_max" => {},
+                        "temperature_max" => {
+                            let temp = match item_obj.get("temperature_max"){
+                                Some(temp) => temp,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: temperature_max field required"))
+                                        .unwrap());
+                                }
+                            };
+                            let temp = match temp.as_f64(){
+                                Some(temp) => temp,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: temperature_max field must be a number"))
+                                        .unwrap());
+                                }
+                            };
+                            temp_max = temp as f32;
+                        },
+                        "temperature_min" => {
+                            let temp = match item_obj.get("temperature_min"){
+                                Some(temp) => temp,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: temperature_min field required"))
+                                        .unwrap());
+                                }
+                            };
+                            let temp = match temp.as_f64(){
+                                Some(temp) => temp,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: temperature_min field must be a number"))
+                                        .unwrap());
+                                }
+                            };
+                            temp_min = temp as f32;
+                        },
+                        "precipitation_sum" => {
+                            let precip = match item_obj.get("precipitation_sum"){
+                                Some(precip) => precip,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: precipitation_sum field required"))
+                                        .unwrap());
+                                }
+                            };
+                            let precip = match precip.as_f64(){
+                                Some(precip) => precip,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: precipitation_sum field must be a number"))
+                                        .unwrap());
+                                }
+                            };
+                            precip_sum = precip as f32;
+                        },
+                        "wind_speed_max" => {
+                            let wind = match item_obj.get("wind_speed_max"){
+                                Some(wind) => wind,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: wind_speed_max field required"))
+                                        .unwrap());
+                                }
+                            };
+                            let wind = match wind.as_f64(){
+                                Some(wind) => wind,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: wind_speed_max field must be a number"))
+                                        .unwrap());
+                                }
+                            };
+                            wind_speed_max = wind as f32;
+                        },
+                        "precipitation_probability_max" => {
+                            let prob = match item_obj.get("precipitation_probability_max"){
+                                Some(prob) => prob,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: precipitation_probability_max field required"))
+                                        .unwrap());
+                                }
+                            };
+                            let prob = match prob.as_f64(){
+                                Some(prob) => prob,
+                                None => {
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("Error: precipitation_probability_max field must be a number"))
+                                        .unwrap());
+                                }
+                            };
+                            precip_prob_max = prob as f32;
+                        },
                         _ => {
                             return Ok(Response::builder()
                                 .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -255,7 +552,23 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
 
                     }
                 }
+                if to_add.contains_key(&date){
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full(format!("Error: duplicate date found: {}", date.to_string())))
+                        .unwrap());
+                }
+                to_add.insert(date,WeatherData::new(date, weather_code, temp_max, temp_min, precip_sum, wind_speed_max, precip_prob_max));
             }
+
+            let mut data_write = data.write().unwrap();
+            for item in &to_add{
+                data_write.insert(item.0.clone(), item.1.clone());
+
+            }
+            drop(data_write);
+            sync_file(to_add);
+
             return Ok(Response::builder()
                 .status(StatusCode::OK)
                 .body(full("Data successfully added"))

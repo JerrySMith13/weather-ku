@@ -23,7 +23,8 @@ pub enum DataPoint{
     TemperatureMin,
     PrecipitationSum,
     WindSpeedMax,
-    PrecipitationProbabilityMax
+    PrecipitationProbabilityMax,
+    Date
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;
@@ -352,6 +353,7 @@ impl WeatherData{
                 DataPoint::PrecipitationSum => json.push_str(&format!("\"precipitation_sum\":{},", self.precip_sum)),
                 DataPoint::WindSpeedMax => json.push_str(&format!("\"wind_speed_max\":{},", self.max_wind)),
                 DataPoint::PrecipitationProbabilityMax => json.push_str(&format!("\"precipitation_probability_max\":{},", self.precip_prob_max)),
+                DataPoint::Date => (),
                 
             }
         }

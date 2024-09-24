@@ -19,3 +19,9 @@ REQUIRE AUTHORIZATION
 introduce body size limits
 make multiple file paths (would increase number of syscalls)
 allow for mutliple output/input types like xml
+add logs for changes that have been made
+
+
+things to fix:
+Reflecting data changes in the file and in the indexmap are asyncrounous, could lead to data inconsistincies
+File synchronization is inefficient, appending to the end would be much easier

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::fs::OpenOptions;
-use std::io::{Read, Write, Seek, SeekFrom};
+use std::io::{BufRead, Read, Seek, SeekFrom, Write};
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
@@ -74,115 +74,60 @@ fn add_data(point: DataPoint, points: &WeatherDataMap) -> String{
 fn sync_file(new_data: WeatherDataMap){
     let args = std::env::args();
     let path = args.skip(1).next().expect("Error: No file path in arguments");
-    let mut position = 0;
-    
-    let mut file = match OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(path){
-            Ok(file) => file,
+    let file = std::fs::File::open(path.clone()).expect("Error: Failed to open file");
+    let reader = std::io::BufReader::new(file);
+
+    let mut lines: Vec<String> = Vec::with_capacity(6);
+    for line in reader.lines(){
+        
+        let mut line = match line{
+            Ok(line) => line,
             Err(_) => {
-                panic!("Error: Failed to open file");
+                panic!("Error: Failed to make read to file");
             }
         };
-    
-    let mut file_str = String::new();
-    match file.read_to_string(&mut file_str){
-        Ok(_) => {},
-        Err(_) => {
-            panic!("Error: Failed to read file (file must contain ONLY valid UTF-8 text)");
-        }
-    };
-    let lines = file_str.split('\n');
-    for line in lines{
-        if line.trim() == ""{
+        if line.trim().is_empty(){
             continue;
         }
-        let split: Vec<&str> = line.split(':').collect();
+        let split = line.trim().split(':').collect::<Vec<&str>>();
         if split.len() != 2{
             panic!("Error: Invalid file format");
         }
-        position += split[0].len() + split[1].len() + 1;
-        match file.seek(SeekFrom::Start(position as u64)){
-            Ok(_) => {},
-            Err(_) => panic!("Error writing to file"),
-        };
         match split[0]{
             "date" => {
-                match file.write_all(add_data(DataPoint::Date, &new_data).as_bytes()){
-                    Ok(_) => {},
-                    Err(_) => {
-                        panic!("Error: Failed to write to file");
-                    }
-                };
-            },
+                line.push_str(&add_data(DataPoint::Date, &new_data));
+            }
             "weather_code" => {
-                match file.write_all(add_data(DataPoint::WeatherCode, &new_data).as_bytes()){
-                    Ok(_) => {},
-                    Err(_) => {
-                        panic!("Error: Failed to write to file");
-                    }
-                };
-            },
+                line.push_str(&add_data(DataPoint::WeatherCode, &new_data));
+            }
             "temperature_max" => {
-                match file.write_all(add_data(DataPoint::TemperatureMax, &new_data).as_bytes()){
-                    Ok(_) => {},
-                    Err(_) => {
-                        panic!("Error: Failed to write to file");
-                    }
-                };
-            },
+                line.push_str(&add_data(DataPoint::TemperatureMax, &new_data));
+            }
             "temperature_min" => {
-                match file.write_all(add_data(DataPoint::TemperatureMin, &new_data).as_bytes()){
-                    Ok(_) => {},
-                    Err(_) => {
-                        panic!("Error: Failed to write to file");
-                    }
-                };
-            },
+                line.push_str(&add_data(DataPoint::TemperatureMin, &new_data));
+            }
             "precipitation_sum" => {
-                match file.write_all(add_data(DataPoint::PrecipitationSum, &new_data).as_bytes()){
-                    Ok(_) => {},
-                    Err(_) => {
-                        panic!("Error: Failed to write to file");
-                    }
-                };
-            },
+                line.push_str(&add_data(DataPoint::PrecipitationSum, &new_data));
+            }
             "wind_speed_max" => {
-                match file.write_all(add_data(DataPoint::WindSpeedMax, &new_data).as_bytes()){
-                    Ok(_) => {},
-                    Err(_) => {
-                        panic!("Error: Failed to write to file");
-                    }
-                };
-            },
+                line.push_str(&add_data(DataPoint::WindSpeedMax, &new_data));
+            }
             "precipitation_probability_max" => {
-                match file.write_all(add_data(DataPoint::PrecipitationProbabilityMax, &new_data).as_bytes()){
-                    Ok(_) => {},
-                    Err(_) => {
-                        panic!("Error: Failed to write to file");
-                    }
-                };
-            },
+                line.push_str(&add_data(DataPoint::PrecipitationProbabilityMax, &new_data));
+            }
             _ => {
                 panic!("Error: Invalid file format");
             }
-
         }
+        lines.push(line);
     }
-
-    /*
-    Find out which line of data it is
-    go to end of line
-    write new data
-     */
-    
-
-
-    
-       
+    let mut file = OpenOptions::new().write(true).truncate(true).open(path).expect("Error: Failed to open file");
+    for mut line in lines{
+        line.push('\n');
+        file.write_all(line.as_bytes()).expect("Error: Failed to write to file");
+    }
 }
-
+    
 fn startup() -> Arc<RwLock<WeatherDataMap>>{
     println!("Starting weather-ku-api server from specified file path");
     let args = std::env::args();
@@ -405,7 +350,7 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                             if data.read().unwrap().contains_key(&new_date){
                                 return Ok(Response::builder()
                                     .status(StatusCode::BAD_REQUEST)
-                                    .body(full("Error: date already exists"))
+                                    .body(full("{ \"error\": \"Date already exists\" }"))
                                     .unwrap());
                             }
                             date = new_date;

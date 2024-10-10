@@ -29,7 +29,6 @@ function getDataFromLocal(dates: String[], options: Options[] = []) {
       }
     }
   }
-
   fetch(url)
     .then(res => res.json())
     .then(data => {console.log(data); return data});
@@ -40,8 +39,6 @@ function App() {
   const [options, setOptions] = useState([]);
   return (
     <>
-      <h1>Weather Management System</h1>
-      
 
     </>
   )

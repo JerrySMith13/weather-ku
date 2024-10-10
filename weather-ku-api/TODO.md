@@ -1,4 +1,8 @@
-Try to capture Arc of data within service fn
-Possibly create multiple copies of data to make sure blocking for other threads isn't common
+- make GET be able to catch next best date instead of returning error
+- add auth
+- add traffic handling
+- add comments 
+- Return json error messages
 
-Optimize take_range in parser
+POSSIBLY:
+- https encryption

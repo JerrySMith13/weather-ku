@@ -1,0 +1,208 @@
+
+2024-10-07 21:20:50.140 UTC: Starting weather-ku-api server from specified file path
+2024-10-07 21:21:00.010 UTC: Starting weather-ku-api server from specified file path
+2024-10-07 21:21:00.010 UTC: Data loaded successfully!
+2024-10-07 21:21:00.020 UTC: Started heartbeat process
+2024-10-07 21:21:15.030 UTC: Server updated at: 2024-10-07 21:21:15.030 UTC
+2024-10-07 21:21:30.030 UTC: Server updated at: 2024-10-07 21:21:30.030 UTC
+2024-10-07 21:21:42.110 UTC: Graceful shutdown signal received
+2024-10-07 21:21:45.040 UTC: Server updated at: 2024-10-07 21:21:45.040 UTC
+2024-10-07 21:21:45.040 UTC: Server shutdown completed without errors
+2024-10-07 21:26:34.240 UTC: Starting weather-ku-api server from specified file path
+2024-10-07 21:26:34.240 UTC: Data loaded successfully!
+2024-10-07 21:26:34.240 UTC: Started heartbeat process
+2024-10-07 21:26:49.250 UTC: Server updated by heartbeat thread
+2024-10-07 21:27:04.250 UTC: Server updated by heartbeat thread
+2024-10-07 21:27:19.260 UTC: Server updated by heartbeat thread
+2024-10-07 21:27:34.260 UTC: Server updated by heartbeat thread
+2024-10-07 21:27:49.270 UTC: Server updated by heartbeat thread
+2024-10-07 21:28:04.280 UTC: Server updated by heartbeat thread
+2024-10-07 21:28:19.280 UTC: Server updated by heartbeat thread
+2024-10-07 21:28:34.290 UTC: Server updated by heartbeat thread
+2024-10-07 21:28:49.300 UTC: Server updated by heartbeat thread
+2024-10-07 21:29:04.300 UTC: Server updated by heartbeat thread
+2024-10-07 21:29:19.310 UTC: Server updated by heartbeat thread
+2024-10-07 21:29:34.320 UTC: Server updated by heartbeat thread
+2024-10-07 21:29:49.320 UTC: Server updated by heartbeat thread
+2024-10-07 21:30:04.330 UTC: Server updated by heartbeat thread
+2024-10-07 21:30:19.340 UTC: Server updated by heartbeat thread
+2024-10-07 21:30:34.340 UTC: Server updated by heartbeat thread
+2024-10-07 21:30:37.130 UTC: Graceful shutdown signal received
+2024-10-07 21:37:37.210 UTC: Starting weather-ku-api server from specified file path
+2024-10-07 21:37:37.220 UTC: Data loaded successfully!
+2024-10-07 21:37:37.220 UTC: Started heartbeat process
+2024-10-07 21:39:44.530 UTC: Graceful shutdown signal received
+2024-10-07 21:39:44.530 UTC: Error with shutting down heartbeat thread: JoinError::Panic(Id(5), "called `Result::unwrap()` on an `Err` value: PoisonError { .. }", ...)
+2024-10-07 21:39:44.530 UTC: Server shutdown completed without errors
+2024-10-07 21:39:52.110 UTC: Starting weather-ku-api server from specified file path
+2024-10-07 21:41:18.590 UTC: Starting weather-ku-api server from specified file path
+2024-10-07 21:41:18.610 UTC: Data loaded successfully!
+2024-10-07 21:41:18.620 UTC: Started heartbeat process
+2024-10-07 21:41:33.620 UTC: Server updated by heartbeat thread
+2024-10-07 21:41:48.150 UTC: Graceful shutdown signal received
+2024-10-07 21:41:48.620 UTC: Server updated by heartbeat thread
+2024-10-07 21:41:48.640 UTC: Server shutdown completed without errors
+2024-10-07 22:27:26.780 UTC: Starting weather-ku-api server from specified file path
+2024-10-07 22:27:26.780 UTC: Data loaded successfully!
+2024-10-07 22:27:26.790 UTC: Started heartbeat process
+2024-10-07 22:27:41.790 UTC: Server updated by heartbeat thread
+2024-10-07 22:27:56.790 UTC: Server updated by heartbeat thread
+2024-10-07 22:28:11.800 UTC: Server updated by heartbeat thread
+2024-10-07 22:28:26.810 UTC: Server updated by heartbeat thread
+2024-10-07 22:28:41.820 UTC: Server updated by heartbeat thread
+2024-10-07 22:28:56.830 UTC: Server updated by heartbeat thread
+2024-10-07 22:29:07.710 UTC: Graceful shutdown signal received
+2024-10-07 22:29:11.840 UTC: Server updated by heartbeat thread
+2024-10-07 22:29:11.840 UTC: Server shutdown completed without errors
+2024-10-08 19:14:40.260 UTC: Starting weather-ku-api server from specified file path
+2024-10-08 19:14:40.260 UTC: Data loaded successfully!
+2024-10-08 19:14:40.260 UTC: Started heartbeat process
+2024-10-08 19:14:55.480 UTC: Server updated by heartbeat thread
+2024-10-08 19:15:10.630 UTC: Server updated by heartbeat thread
+2024-10-08 19:15:25.770 UTC: Server updated by heartbeat thread
+2024-10-08 19:15:40.790 UTC: Server updated by heartbeat thread
+2024-10-08 19:15:55.800 UTC: Server updated by heartbeat thread
+2024-10-08 19:16:10.800 UTC: Server updated by heartbeat thread
+2024-10-08 19:16:25.810 UTC: Server updated by heartbeat thread
+2024-10-08 19:16:40.820 UTC: Server updated by heartbeat thread
+2024-10-08 19:16:55.820 UTC: Server updated by heartbeat thread
+2024-10-08 19:17:10.830 UTC: Server updated by heartbeat thread
+2024-10-08 19:17:25.830 UTC: Server updated by heartbeat thread
+2024-10-08 19:17:40.840 UTC: Server updated by heartbeat thread
+2024-10-08 19:17:55.840 UTC: Server updated by heartbeat thread
+2024-10-08 19:18:10.850 UTC: Server updated by heartbeat thread
+2024-10-08 19:18:25.850 UTC: Server updated by heartbeat thread
+2024-10-08 19:18:40.860 UTC: Server updated by heartbeat thread
+2024-10-08 19:18:55.860 UTC: Server updated by heartbeat thread
+2024-10-08 19:19:10.870 UTC: Server updated by heartbeat thread
+2024-10-08 19:19:25.870 UTC: Server updated by heartbeat thread
+2024-10-08 19:19:40.880 UTC: Server updated by heartbeat thread
+2024-10-08 19:19:55.880 UTC: Server updated by heartbeat thread
+2024-10-08 19:20:10.890 UTC: Server updated by heartbeat thread
+2024-10-08 19:20:25.890 UTC: Server updated by heartbeat thread
+2024-10-08 19:20:40.900 UTC: Server updated by heartbeat thread
+2024-10-08 19:20:55.900 UTC: Server updated by heartbeat thread
+2024-10-08 19:21:10.910 UTC: Server updated by heartbeat thread
+2024-10-08 19:21:25.990 UTC: Server updated by heartbeat thread
+2024-10-08 19:21:41.090 UTC: Server updated by heartbeat thread
+2024-10-08 19:21:56.180 UTC: Server updated by heartbeat thread
+2024-10-08 19:22:11.190 UTC: Server updated by heartbeat thread
+2024-10-08 19:22:26.200 UTC: Server updated by heartbeat thread
+2024-10-08 19:22:41.210 UTC: Server updated by heartbeat thread
+2024-10-08 19:22:56.210 UTC: Server updated by heartbeat thread
+2024-10-08 19:23:11.220 UTC: Server updated by heartbeat thread
+2024-10-08 19:23:26.230 UTC: Server updated by heartbeat thread
+2024-10-08 19:23:41.230 UTC: Server updated by heartbeat thread
+2024-10-08 19:23:56.230 UTC: Server updated by heartbeat thread
+2024-10-08 19:24:11.240 UTC: Server updated by heartbeat thread
+2024-10-08 19:24:26.240 UTC: Server updated by heartbeat thread
+2024-10-08 19:24:41.250 UTC: Server updated by heartbeat thread
+2024-10-08 19:24:56.260 UTC: Server updated by heartbeat thread
+2024-10-08 19:25:11.270 UTC: Server updated by heartbeat thread
+2024-10-08 19:25:26.270 UTC: Server updated by heartbeat thread
+2024-10-08 19:25:41.280 UTC: Server updated by heartbeat thread
+2024-10-08 19:25:56.280 UTC: Server updated by heartbeat thread
+2024-10-08 19:26:11.290 UTC: Server updated by heartbeat thread
+2024-10-08 19:26:26.300 UTC: Server updated by heartbeat thread
+2024-10-08 19:26:41.300 UTC: Server updated by heartbeat thread
+2024-10-08 19:26:56.310 UTC: Server updated by heartbeat thread
+2024-10-08 19:27:11.310 UTC: Server updated by heartbeat thread
+2024-10-08 19:27:26.320 UTC: Server updated by heartbeat thread
+2024-10-08 19:27:41.320 UTC: Server updated by heartbeat thread
+2024-10-08 19:27:56.330 UTC: Server updated by heartbeat thread
+2024-10-08 19:28:11.340 UTC: Server updated by heartbeat thread
+2024-10-08 19:28:26.350 UTC: Server updated by heartbeat thread
+2024-10-08 19:28:41.360 UTC: Server updated by heartbeat thread
+2024-10-08 19:28:56.380 UTC: Server updated by heartbeat thread
+2024-10-08 19:29:11.390 UTC: Server updated by heartbeat thread
+2024-10-08 19:29:26.400 UTC: Server updated by heartbeat thread
+2024-10-08 19:29:41.410 UTC: Server updated by heartbeat thread
+2024-10-08 19:29:56.420 UTC: Server updated by heartbeat thread
+2024-10-08 19:30:11.420 UTC: Server updated by heartbeat thread
+2024-10-08 19:30:26.430 UTC: Server updated by heartbeat thread
+2024-10-08 19:30:41.430 UTC: Server updated by heartbeat thread
+2024-10-08 19:30:56.440 UTC: Server updated by heartbeat thread
+2024-10-08 19:31:11.460 UTC: Server updated by heartbeat thread
+2024-10-08 19:31:26.470 UTC: Server updated by heartbeat thread
+2024-10-08 19:31:41.480 UTC: Server updated by heartbeat thread
+2024-10-08 19:31:56.480 UTC: Server updated by heartbeat thread
+2024-10-08 19:32:11.490 UTC: Server updated by heartbeat thread
+2024-10-08 19:32:26.490 UTC: Server updated by heartbeat thread
+2024-10-08 19:32:41.500 UTC: Server updated by heartbeat thread
+2024-10-08 19:32:56.500 UTC: Server updated by heartbeat thread
+2024-10-08 19:33:11.540 UTC: Server updated by heartbeat thread
+2024-10-08 19:33:26.540 UTC: Server updated by heartbeat thread
+2024-10-08 19:33:41.550 UTC: Server updated by heartbeat thread
+2024-10-08 19:33:56.550 UTC: Server updated by heartbeat thread
+2024-10-08 19:34:11.570 UTC: Server updated by heartbeat thread
+2024-10-08 19:34:26.580 UTC: Server updated by heartbeat thread
+2024-10-08 19:34:41.590 UTC: Server updated by heartbeat thread
+2024-10-08 19:34:56.590 UTC: Server updated by heartbeat thread
+2024-10-08 19:35:11.600 UTC: Server updated by heartbeat thread
+2024-10-08 19:35:26.600 UTC: Server updated by heartbeat thread
+2024-10-08 19:35:41.600 UTC: Server updated by heartbeat thread
+2024-10-08 19:35:56.610 UTC: Server updated by heartbeat thread
+2024-10-08 19:36:11.620 UTC: Server updated by heartbeat thread
+2024-10-08 19:36:26.620 UTC: Server updated by heartbeat thread
+2024-10-08 19:36:41.630 UTC: Server updated by heartbeat thread
+2024-10-08 19:36:56.630 UTC: Server updated by heartbeat thread
+2024-10-08 19:37:11.640 UTC: Server updated by heartbeat thread
+2024-10-08 19:37:26.650 UTC: Server updated by heartbeat thread
+2024-10-08 19:37:41.650 UTC: Server updated by heartbeat thread
+2024-10-08 19:37:56.660 UTC: Server updated by heartbeat thread
+2024-10-08 19:38:11.670 UTC: Server updated by heartbeat thread
+2024-10-08 19:38:26.670 UTC: Server updated by heartbeat thread
+2024-10-08 19:38:41.680 UTC: Server updated by heartbeat thread
+2024-10-08 19:38:56.680 UTC: Server updated by heartbeat thread
+2024-10-08 19:39:11.680 UTC: Server updated by heartbeat thread
+2024-10-08 19:39:26.690 UTC: Server updated by heartbeat thread
+2024-10-08 19:39:41.700 UTC: Server updated by heartbeat thread
+2024-10-08 21:19:31.010 UTC: Starting weather-ku-api server from specified file path
+2024-10-08 21:19:31.010 UTC: Data loaded successfully!
+2024-10-08 21:19:31.010 UTC: Started heartbeat process
+2024-10-08 21:19:46.020 UTC: Server updated by heartbeat thread
+2024-10-08 21:20:01.030 UTC: Server updated by heartbeat thread
+2024-10-08 21:20:07.190 UTC: Graceful shutdown signal received
+2024-10-08 21:20:16.040 UTC: Server updated by heartbeat thread
+2024-10-08 21:20:16.040 UTC: Server shutdown completed without errors
+2024-10-10 13:31:23.550 UTC: Starting weather-ku-api server from specified file path
+2024-10-10 13:31:23.570 UTC: Data loaded successfully!
+2024-10-10 13:31:23.570 UTC: Started heartbeat process
+2024-10-10 13:31:38.570 UTC: Server updated by heartbeat thread
+2024-10-10 13:31:53.570 UTC: Server updated by heartbeat thread
+2024-10-10 13:32:08.580 UTC: Server updated by heartbeat thread
+2024-10-10 13:32:23.590 UTC: Server updated by heartbeat thread
+2024-10-10 13:32:38.600 UTC: Server updated by heartbeat thread
+2024-10-10 13:32:53.610 UTC: Server updated by heartbeat thread
+2024-10-10 13:33:08.610 UTC: Server updated by heartbeat thread
+2024-10-10 13:33:23.620 UTC: Server updated by heartbeat thread
+2024-10-10 13:33:38.630 UTC: Server updated by heartbeat thread
+2024-10-10 13:33:53.640 UTC: Server updated by heartbeat thread
+2024-10-10 13:34:02.760 UTC: Graceful shutdown signal received
+2024-10-10 13:34:08.650 UTC: Server updated by heartbeat thread
+2024-10-10 13:34:08.660 UTC: Server shutdown completed without errors
+2024-10-10 13:45:53.090 UTC: Starting weather-ku-api server from specified file path
+2024-10-10 13:45:53.090 UTC: Data loaded successfully!
+2024-10-10 13:45:53.090 UTC: Started heartbeat process
+2024-10-10 13:46:08.100 UTC: Server updated by heartbeat thread
+2024-10-10 13:46:21.740 UTC: Graceful shutdown signal received
+2024-10-10 13:46:23.100 UTC: Server updated by heartbeat thread
+2024-10-10 13:46:23.100 UTC: Server shutdown completed without errors
+2024-10-10 13:52:31.670 UTC: Starting weather-ku-api server from specified file path
+2024-10-10 13:52:31.670 UTC: Data loaded successfully!
+2024-10-10 13:52:31.690 UTC: Started heartbeat process
+2024-10-10 13:52:46.710 UTC: Server updated by heartbeat thread
+2024-10-10 13:52:55.870 UTC: Graceful shutdown signal received
+2024-10-10 13:52:55.880 UTC: Server updated by heartbeat thread
+2024-10-10 13:52:55.880 UTC: Server shutdown completed without errors
+2024-10-10 13:53:28.500 UTC: Starting weather-ku-api server from specified file path
+2024-10-10 13:53:28.500 UTC: Data loaded successfully!
+2024-10-10 13:53:28.510 UTC: Started heartbeat process
+2024-10-10 13:53:43.510 UTC: Server updated by heartbeat thread
+2024-10-10 13:53:58.530 UTC: Server updated by heartbeat thread
+2024-10-10 13:54:13.540 UTC: Server updated by heartbeat thread
+2024-10-10 13:54:28.550 UTC: Server updated by heartbeat thread
+2024-10-10 13:54:43.570 UTC: Server updated by heartbeat thread
+2024-10-10 13:54:48.900 UTC: Graceful shutdown signal received
+2024-10-10 13:54:48.900 UTC: Server updated by heartbeat thread
+2024-10-10 13:54:48.910 UTC: Server shutdown completed without errors

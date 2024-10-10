@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 use std::fs::OpenOptions;
-use std::io::{BufRead, Read, Seek, SeekFrom, Write};
+use std::time::Duration;
 use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Condvar, Mutex};
+use std::io::Write;
 
 
 use http_body_util::{Full, Empty};
@@ -17,126 +18,87 @@ use tokio::net::TcpListener;
 use hyper::{Method, StatusCode};
 use http_body_util::{combinators::BoxBody, BodyExt};
 
-use parser::{DataPoint, DataOps, Date, WeatherData, WeatherDataMap};
+use chrono::DurationRound;
 
-#[inline]
-fn add_data(point: DataPoint, points: &WeatherDataMap) -> String{
-    let mut data = String::new();
-    match point{
-        DataPoint::WeatherCode => {
-            for (_, weather_data) in points.iter(){
-                data.push_str(&format!(" {}",weather_data.weather_code));
-            }
-            return data;
-        },
-        DataPoint::TemperatureMax => {
-            for (_, weather_data) in points.iter(){
-                data.push_str(&format!(" {}",weather_data.temp_max));
-            }
-            return data;
-        },
-        DataPoint::TemperatureMin => {
-            for (_, weather_data) in points.iter(){
-                data.push_str(&format!(" {}",weather_data.temp_min));
-            }
-            return data;
-        },
-        DataPoint::PrecipitationSum => {
-            for (_, weather_data) in points.iter(){
-                data.push_str(&format!(" {}",weather_data.precip_sum));
-            }
-            return data;
-        },
-        DataPoint::WindSpeedMax => {
-            for (_, weather_data) in points.iter(){
-                data.push_str(&format!(" {}",weather_data.max_wind));
-            }
-            return data;
-        },
-        DataPoint::PrecipitationProbabilityMax => {
-            for (_, weather_data) in points.iter(){
-                data.push_str(&format!(" {}",weather_data.precip_prob_max));
-            }
-            return data;
-        }
-        DataPoint::Date => {
-            for (weather_data, _) in points.iter(){
-                data.push_str(&format!(" {}", weather_data.to_string()));
-            }
-            return data;
-        }
+use parser::{DataOps, Date, WeatherData, WeatherDataMap};
 
-
-    }
-}
-
-/// REQUIRES NO DUPLICATE DATES
-fn sync_file(new_data: WeatherDataMap){
-    let args = std::env::args();
-    let path = args.skip(1).next().expect("Error: No file path in arguments");
-    let file = std::fs::File::open(path.clone()).expect("Error: Failed to open file");
-    let reader = std::io::BufReader::new(file);
-
-    let mut lines: Vec<String> = Vec::with_capacity(6);
-    for line in reader.lines(){
-        
-        let mut line = match line{
-            Ok(line) => line,
-            Err(_) => {
-                panic!("Error: Failed to make read to file");
+fn log(msg: &str){
+    let mut file = match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("log.txt"){
+            Ok(f) => f,
+            Err(e) => {
+                match e.kind(){
+                    std::io::ErrorKind::PermissionDenied => {
+                        eprintln!("Error writing to log file: Permission Denied");
+                        std::process::exit(1);
+                    },
+                    _ => {
+                        eprintln!("Error with log file: {:?}", e);
+                        std::process::exit(1);
+                    }
+                }
             }
         };
-        if line.trim().is_empty(){
-            continue;
+        
+    let mut log_msg = String::new();
+    log_msg.push('\n');
+    let date_time = chrono::Utc::now().duration_round(chrono::TimeDelta::try_milliseconds(10).unwrap()).unwrap().to_string();
+    log_msg.push_str(&date_time);
+    log_msg.push_str(": ");
+    log_msg.push_str(msg);
+    match file.write_all(log_msg.as_bytes()){
+        Ok(_) => {},
+        Err(e) => {
+            eprintln!("Error writing to log file: {:?}", e);
+            std::process::exit(1);
         }
-        let split = line.trim().split(':').collect::<Vec<&str>>();
-        if split.len() != 2{
-            panic!("Error: Invalid file format");
-        }
-        match split[0]{
-            "date" => {
-                line.push_str(&add_data(DataPoint::Date, &new_data));
-            }
-            "weather_code" => {
-                line.push_str(&add_data(DataPoint::WeatherCode, &new_data));
-            }
-            "temperature_max" => {
-                line.push_str(&add_data(DataPoint::TemperatureMax, &new_data));
-            }
-            "temperature_min" => {
-                line.push_str(&add_data(DataPoint::TemperatureMin, &new_data));
-            }
-            "precipitation_sum" => {
-                line.push_str(&add_data(DataPoint::PrecipitationSum, &new_data));
-            }
-            "wind_speed_max" => {
-                line.push_str(&add_data(DataPoint::WindSpeedMax, &new_data));
-            }
-            "precipitation_probability_max" => {
-                line.push_str(&add_data(DataPoint::PrecipitationProbabilityMax, &new_data));
-            }
-            _ => {
-                panic!("Error: Invalid file format");
-            }
-        }
-        lines.push(line);
-    }
-    let mut file = OpenOptions::new().write(true).truncate(true).open(path).expect("Error: Failed to open file");
-    for mut line in lines{
-        line.push('\n');
-        file.write_all(line.as_bytes()).expect("Error: Failed to write to file");
-    }
-}
+    };
+    print!("{}", log_msg);
     
+}
+
+async fn heartbeat(data: Arc<RwLock<WeatherDataMap>>, quit: Arc<Mutex<bool>>){
+
+    let path = std::env::args().skip(1).next().unwrap();
+    
+    log("Started heartbeat process");
+    loop{
+        tokio::select! {
+            _ = tokio::time::sleep(std::time::Duration::from_secs(15)) => {},
+            _ = tokio::signal::ctrl_c() => {
+                *quit.lock().unwrap() = true;
+            }
+        }
+        let mut file = match OpenOptions::new().write(true).truncate(true).open(path.clone()){
+            Ok(file) => file,
+            Err(e) => panic!("Error: {}", e),
+        };
+
+        match file.write_all(data.read().unwrap().to_file().as_bytes()){
+            Ok(_) => {},
+            Err(e) => panic!("File error: {}", e)
+        };
+        log("Server updated by heartbeat thread");
+        if *quit.lock().unwrap() {
+            break;
+        }
+
+    }
+    
+    
+}
+
 fn startup() -> Arc<RwLock<WeatherDataMap>>{
-    println!("Starting weather-ku-api server from specified file path");
+    log("Starting weather-ku-api server from specified file path");
     let args = std::env::args();
     let file_path = args.skip(1).next().expect("Error: No file path in arguments");
-    println!("File path: {}", file_path);
-    let file_str = std::fs::read_to_string(file_path).expect("Error: Failed to read file");
+    let file_str = std::fs::read_to_string(&file_path).expect("Error: could not read from specified file path");
     let data = WeatherData::from_data(file_str).expect("Error: Failed to parse data (check file for errors)");
-    println!("Data loaded successfully!");
-    return Arc::new(RwLock::new(data));
+    log("Data loaded successfully!");
+    let data = Arc::new(RwLock::new(data));
+    data
 }
 
 async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<WeatherDataMap>>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
@@ -150,7 +112,7 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                     .status(StatusCode::NOT_FOUND)
                     .body(full("Error: path does not exist"))
                     .unwrap_or_else(|e| {
-                        eprintln!("Failed to build response: {}", e);
+                    log(format!("Failed to build response: {:?}", e).as_str());
                         Response::builder()
                             .status(StatusCode::INTERNAL_SERVER_ERROR)
                             .body(empty())
@@ -174,25 +136,25 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                 query_map.insert(kv[0], kv[1]);
             }
             
-            if query_map.len() > 2 || !query_map.contains_key("date"){
+            if query_map.len() > 2 || !query_map.contains_key("dates"){
                 return Ok(Response::builder()
                     .status(StatusCode::BAD_REQUEST)
-                    .body(full("Error: invalid query (only date and values allowed)"))
+                    .body(full("Error: invalid query (only dates and values allowed)"))
                     .unwrap());
             }
             else if query_map.len() == 2 && !query_map.contains_key("values"){
                 return Ok(Response::builder()
                     .status(StatusCode::BAD_REQUEST)
-                    .body(full("Error: invalid query (only date and values allowed)"))
+                    .body(full("Error: invalid query (only dates and values allowed)"))
                     .unwrap());
             }
-            let date_str = *query_map.get("date").unwrap();
+            let date_str = *query_map.get("dates").unwrap();
             
             let split: Vec<&str> = date_str.split("%20").collect();
             if split.len() != 2{
                 return Ok(Response::builder()
                     .status(StatusCode::BAD_REQUEST)
-                    .body(full("Date field must be in format YYYY-MM-DD%20YYYY-MM-DD"))
+                    .body(full("Dates field must be in format YYYY-MM-DD%20YYYY-MM-DD"))
                     .unwrap());
             }
             let begin_date = match Date::from_string(split[0]){
@@ -214,6 +176,7 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                 }
             };
             let data = data.read().unwrap();
+            
             let map: WeatherDataMap = match data.take_range(&begin_date, &end_date){
                 Some(map) => map,
                 None => {
@@ -254,7 +217,7 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                 .body(full(json))
                 .unwrap();
             return Ok(body);
-        }
+        },
         &Method::POST => {
             let uri = req.uri();
             if uri.path() != "/" || uri.query() != None {
@@ -511,23 +474,251 @@ async fn handle_req(req: Request<hyper::body::Incoming>, data: Arc<RwLock<Weathe
                 data_write.insert(item.0.clone(), item.1.clone());
 
             }
-            drop(data_write);
-            sync_file(to_add);
-
+            
             return Ok(Response::builder()
                 .status(StatusCode::OK)
                 .body(full("Data successfully added"))
                 .unwrap());
 
-        }
+        },
+        &Method::PUT => {
+            let path = uri.path();
+            if !path.starts_with("/q"){
+                return Ok(Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(full("{\"error\": \"path does not exist\"}"))
+                    .unwrap_or_else(|e| {
+                    log(format!("Failed to build response: {:?}", e).as_str());
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(empty())
+                            .unwrap()
+                    }));
+            }
+            let query = match uri.query(){
+                Some(query) => query,
+                None => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full("{\"error\": \"date query required\"}"))
+                        .unwrap());
+                }
+            };
+            if !query.starts_with("dates="){
+                return Ok(Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body(full("{\"error\": \"date query required\"}"))
+                    .unwrap());
+            }
+            let date_str = query.strip_prefix("dates=").unwrap();
+            let dates: Vec<&str> = date_str.split("%20").collect();
+            let mut dates_to_change: Vec<Date> = Vec::with_capacity(dates.len());
+            for date_str in dates{
+                let date = match Date::from_string(date_str){
+                    Ok(date) => date,
+                    Err(_) => {
+                        return Ok(Response::builder()
+                            .status(StatusCode::BAD_REQUEST)
+                            .body(full("{\"error\": \"invalid date format\"}"))
+                            .unwrap());
+                    }
+                };
+                dates_to_change.push(date);
+            }
+            
+            let body = match String::from_utf8(req.collect().await?.to_bytes().to_vec()){
+                Ok(body) => body,
+                Err(_) => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::UNSUPPORTED_MEDIA_TYPE)
+                        .body(full("{\"error\": \"body must be valid utf-8 text\"}"))
+                        .unwrap());
+                }
+            };
+            let values: Vec<Value> = match serde_json::from_str(&body){
+                Ok(Value::Array(data)) => data,
+                Ok(_) => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full("{\"error\": \"body must be a json array\"}"))
+                        .unwrap());
+                }
+                Err(_) => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full("{\"error\": \"body must be valid json\"}"))
+                        .unwrap());
+                    
+                }
+            };
+            if values.len() != dates_to_change.len(){
+                return Ok(Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body(full("{\"error\": \"number of dates and values must be equal\"}"))
+                    .unwrap());
+            }
+            let mut index: u16 = 0;
+            let mut data = data.write().unwrap();
+            for value in values{
+                if !value.is_object(){
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full("{\"error\": \"body must be a json array of objects\"}"))
+                        .unwrap());
+                }
+                let value = value.as_object().unwrap();
+                match data.get_mut(&dates_to_change[index as usize]){
+                    Some(changing) => {
+                        if let Some(weather_code) = value.get("weather_code"){
+                            if let Some(weather_code) = weather_code.as_u64(){
+                                if weather_code > 255{
+                                    return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(full("{\"error\": \"weather_code must be a number between 0 and 255\"}"))
+                                        .unwrap());
+                                }
+                                changing.weather_code = weather_code as u8;
+                            }
+                            else{
+                                return Ok(Response::builder()
+                                    .status(StatusCode::BAD_REQUEST)
+                                    .body(full("{\"error\": \"weather_code must be a number\"}"))
+                                    .unwrap());
+                        }
+                    }
+                        if let Some(temp_max) = value.get("temperature_max"){
+                            if let Some(temp_max) = temp_max.as_f64(){
+                                changing.temp_max = temp_max as f32;
+                            }
+                            else{
+                                return Ok(Response::builder()
+                                    .status(StatusCode::BAD_REQUEST)
+                                    .body(full("{\"error\": \"temperature_max must be a number\"}"))
+                                    .unwrap());
+                            }
+                        }
+                        if let Some(temp_min) = value.get("temperature_min"){
+                            if let Some(temp_min) = temp_min.as_f64(){
+                                changing.temp_min = temp_min as f32;
+                            }
+                            else{
+                                return Ok(Response::builder()
+                                    .status(StatusCode::BAD_REQUEST)
+                                    .body(full("{\"error\": \"temperature_min must be a number\"}"))
+                                    .unwrap());
+                            }
+                        }
+                        if let Some(precip_sum) = value.get("precipitation_sum"){
+                            if let Some(precip_sum) = precip_sum.as_f64(){
+                                changing.precip_sum = precip_sum as f32;
+                            }
+                            else{
+                                return Ok(Response::builder()
+                                    .status(StatusCode::BAD_REQUEST)
+                                    .body(full("{\"error\": \"precipitation_sum must be a number\"}"))
+                                    .unwrap());
+                            }
+                        }
+                        if let Some(wind_speed_max) = value.get("wind_speed_max"){
+                            if let Some(wind_speed_max) = wind_speed_max.as_f64(){
+                                changing.max_wind = wind_speed_max as f32;
+                            }
+                            else{
+                                return Ok(Response::builder()
+                                    .status(StatusCode::BAD_REQUEST)
+                                    .body(full("{\"error\": \"wind_speed_max must be a number\"}"))
+                                    .unwrap());
+                            }
+                        }
+                        if let Some(precip_prob_max) = value.get("precipitation_probability_max"){
+                            if let Some(precip_prob_max) = precip_prob_max.as_f64(){
+                                changing.precip_prob_max = precip_prob_max as f32;
+                            }
+                            else{
+                                return Ok(Response::builder()
+                                    .status(StatusCode::BAD_REQUEST)
+                                    .body(full("{\"error\": \"precipitation_probability_max must be a number\"}"))
+                                    .unwrap());
+                            }
+                        }
+                    },
+                    None => {
+                        return Ok(Response::builder()
+                            .status(StatusCode::BAD_REQUEST)
+                            .body(full(format!("{{\"error\": \"date {} does not exist\"}}", dates_to_change[index as usize].to_string())))
+                            .unwrap());
+                    }
+                }
+                index += 1;
+            }
+            return Ok(Response::builder()
+        .status(StatusCode::OK)
+        .body(full("{\"success\": \"Data successfully updated\"}"))
+        .unwrap());
+        },      
+        &Method::DELETE => {
+            if uri.path() != "/q"{
+                return Ok(Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(full("{\"error\": \"path does not exist\"}"))
+                    .unwrap());
+            }
+            let query = match uri.query(){
+                Some(query) => query,
+                None => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full("{\"error\": \"date query required\"}"))
+                        .unwrap());
+                }
+            };
+            if !query.starts_with("dates="){
+                return Ok(Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body(full("{\"error\": \"date query required\"}"))
+                    .unwrap());
+            }
+            let date_str = query.strip_prefix("dates=").unwrap();
+            let dates: Vec<&str> = date_str.split("%20").collect();
+            let mut dates_to_delete: Vec<Date> = Vec::with_capacity(dates.len());
+            for date_str in dates{
+                let date = match Date::from_string(date_str){
+                    Ok(date) => date,
+                    Err(_) => {
+                        return Ok(Response::builder()
+                            .status(StatusCode::BAD_REQUEST)
+                            .body(full(format!("{{\"error\": \"invalid date format: {}\"}}", date_str)))
+                            .unwrap());
+                    }
+                };
+                dates_to_delete.push(date);
+            }
+            let mut data = data.write().unwrap();
+            for date in dates_to_delete{
+                if !data.contains_key(&date){
+                    return Ok(Response::builder()
+                        .status(StatusCode::BAD_REQUEST)
+                        .body(full(format!("{{\"error\": \"date {} does not exist\"}}", date.to_string())))
+                        .unwrap());
+                }
+                data.shift_remove_full(&date);
+            }
+            return Ok(Response::builder()
+                .status(StatusCode::OK)
+                .body(full("{\"success\": \"Data successfully deleted\"}"))
+                .unwrap());
+        }  
         _ => {
             return Ok(Response::builder()
                 .status(StatusCode::METHOD_NOT_ALLOWED)
                 .body(empty())
                 .unwrap());
         }
+    
     }
 }
+
+
 
 fn full<T: Into<Bytes>>(buf: T) -> BoxBody<Bytes, hyper::Error>{
     Full::new(buf.into()).map_err(|never| match never{}).boxed()
@@ -539,31 +730,74 @@ fn empty() -> BoxBody<Bytes, hyper::Error> {
         .boxed()
 }
 
+async fn shutdown_signal() {
+    // Wait for the CTRL+C signal
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to install CTRL+C signal handler");
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
 
     let data = startup();
+    let is_quit = Arc::new(Mutex::new(false));
+    let heartbeat_thread = tokio::spawn(heartbeat(data.clone(), is_quit.clone()));
+    data.clear_poison();
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = TcpListener::bind(&addr).await?;
-
+    let http = http1::Builder::new();
+    let graceful = hyper_util::server::graceful::GracefulShutdown::new();
+    let mut signal = std::pin::pin!(shutdown_signal());
+    
     loop{
-        let data_ref = data.clone();
-        let (socket, _) = listener.accept().await?;
-        let io = TokioIo::new(socket);
-        println!("Accepted connection from: {}", io.inner().peer_addr()?);
-        tokio::task::spawn(async move {
-            // Finally, we bind the incoming connection to our `hello` service
-            if let Err(err) = http1::Builder::new()
-                // `service_fn` converts our function in a `Service`
-                .serve_connection(io, service_fn(move |req| handle_req(req, data_ref.clone())))
-                .await
-            {
-                eprintln!("Error serving connection: {:?}", err);
+        tokio::select! {
+            Ok((stream, _addr)) = listener.accept() => {
+                let io = TokioIo::new(stream);
+                let data_ref = data.clone();
+                let conn = http.serve_connection(io, service_fn(move |req| {handle_req(req, data_ref.clone())}));
+                // watch this connection
+                let fut = graceful.watch(conn);
+                tokio::spawn(async move {
+                    if let Err(e) = fut.await {
+                        log(format!("Error serving connection: {:?}", e).as_str());
+                    }
+                });
+            },
+    
+            _ = &mut signal => {
+                log("Graceful shutdown signal received");
+                // stop the accept loop
+                break;
             }
-        });
-
-
+        }
     }
+    tokio::select! {
+        // Waits for all connections to close, then waits for the heartbeat thread to finish updating file
+        _ = graceful.shutdown() => {
+            *is_quit.lock().unwrap() = true;
+            match heartbeat_thread.await{
+                Ok(_) => {},
+                Err(e) => {
+                    log(format!("Error with shutting down heartbeat thread: {:?}", e).as_str());
+                }
+            };
+            log("Server shutdown completed without errors");
+
+        },
+        // If the graceful shutdown times out, print an error message
+        _ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {
+            *is_quit.lock().unwrap() = true;
+            match heartbeat_thread.await{
+                Ok(_) => {},
+                Err(e) => {
+                    log(format!("Error with shutting down heartbeat thread: {:?}", e).as_str());
+                }
+            };
+            log("Server timed out wait for all connections to close");
+        }
+    }
+    Ok(())
 
 }

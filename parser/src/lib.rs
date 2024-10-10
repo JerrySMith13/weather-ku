@@ -33,6 +33,7 @@ pub type WeatherDataMap = IndexMap<Date, WeatherData>;
 pub trait DataOps{
     fn take_range(&self, begin: &Date, end: &Date) -> Option<WeatherDataMap>;
     fn json(self, points: HashSet<DataPoint>) -> String;
+    fn to_file(&self) -> String;
 }
 
 impl DataOps for WeatherDataMap{
@@ -64,6 +65,46 @@ impl DataOps for WeatherDataMap{
         json.remove(json.rfind(',').unwrap());
         json.push_str("]");
         json
+    }
+    fn to_file(&self) -> String{
+        let mut data_str = String::new();
+        data_str.push_str("date:");
+        for (date, _) in self.iter(){
+            data_str.push_str(&date.to_string());
+            data_str.push(' ');
+        }
+        data_str.push_str("\nweather_code:");
+        for (_, data) in self.iter(){
+            data_str.push_str(&data.weather_code.to_string());
+            data_str.push(' ');
+        }
+        data_str.push_str("\ntemperature_max:");
+        for (_, data) in self.iter(){
+            data_str.push_str(&data.temp_max.to_string());
+            data_str.push(' ');
+        }
+        data_str.push_str("\ntemperature_min:");
+        for (_, data) in self.iter(){
+            data_str.push_str(&data.temp_min.to_string());
+            data_str.push(' ');
+        }
+        data_str.push_str("\nprecipitation_sum:");
+        for (_, data) in self.iter(){
+            data_str.push_str(&data.precip_sum.to_string());
+            data_str.push(' ');
+        }
+        data_str.push_str("\nwind_speed_max:");
+        for (_, data) in self.iter(){
+            data_str.push_str(&data.max_wind.to_string());
+            data_str.push(' ');
+        }
+        data_str.push_str("\nprecipitation_probability_max:");
+        for (_, data) in self.iter(){
+            data_str.push_str(&data.precip_prob_max.to_string());
+            data_str.push(' ');
+        }
+        data_str
+
     }
 }
 

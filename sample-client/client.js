@@ -1,22 +1,14 @@
 const fs = require('fs');
 
 // Define the URL to fetch
-const url = 'http://localhost:3000';
+const url = 'http://localhost:3000/q?dates=2024-4-27';
 
 // Define the JSON array to send in the POST request
-const data = [
-    { date: "2024-04-22", weather_code: 100, temperature_max: 25.0, temperature_min: 15.0, precipitation_sum: 5.0, wind_speed_max: 10.0, precipitation_probability_max: 80.0 },
-    { date: "2024-04-23", weather_code: 200, temperature_max: 25.0, temperature_min: 15.0, precipitation_sum: 5.0, wind_speed_max: 10.0, precipitation_probability_max: 80.0 },
 
-];
 
 // Fetch the URL with a POST request
 fetch(url, {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
+    method: 'DELETE'
 })
     .then(response => {
         if (!response.ok) {

@@ -140,7 +140,7 @@ fn data_ops(data: IndexMap<Date, WeatherData>, point: DataPoint) {
     if range.len() == 1 || point == DataPoint::WeatherCode {
         options = vec!["Single Point"];
     } else {
-        options = vec!["Single Point", "Average", "Minimum", "Maximum"];
+        options = vec!["Single Point", "Average", "Minimum", "Maximum", "Compare"];
     }
     let op = match Select::new("Select an operation to perform: ", options).prompt() {
         Ok(op) => op,
@@ -168,6 +168,103 @@ fn data_ops(data: IndexMap<Date, WeatherData>, point: DataPoint) {
             let max = max(set);
             format!("Average {} from {} to {}: {}", point.to_string(), range.first().unwrap().0.to_string(), range.last().unwrap().0.to_string(), max)
         }
+        "Compare" => {
+            let options = vec!["Weather Code", "High Temperature", "Low Temperature", "Total Precipitation", "Highest Precipitation Chance", "Maximum Wind Speed"];
+            let compare = match Select::new("Select a data point to compare: ", options).prompt() {
+                Ok(compare) => compare,
+                Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
+                    exit_dialog(start_menu);
+                    return;
+                }
+                Err(_) => {
+                    println!("Error occured, please try again.");
+                    start_menu();
+                    return;
+                }
+            };
+            let mut comp_vec = Vec::with_capacity(range.len());
+            for (date, _) in range.iter() {
+                comp_vec.push(date.to_string());
+            }
+            let mut date_first = match Select::new("Select first date to compare", comp_vec.clone()).prompt() {
+                Ok(date) => date,
+                Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
+                    exit_dialog(start_menu);
+                    return;
+                }
+                Err(_) => {
+                    println!("Error occured, please try again.");
+                    start_menu();
+                    return;
+                }
+            };
+            let mut date_second = match Select::new("Select second date to compare", comp_vec).prompt() {
+                Ok(date) => date,
+                Err(InquireError::OperationCanceled) | Err(InquireError::OperationInterrupted) => {
+                    exit_dialog(start_menu);
+                    return;
+                }
+                Err(_) => {
+                    println!("Error occured, please try again.");
+                    start_menu();
+                    return;
+                }
+            };
+            let data_first = range.get(&Date::from_string(&date_first).unwrap()).unwrap();
+            let data_second = range.get(&Date::from_string(&date_second).unwrap()).unwrap();
+
+            let mut comp1: f32 = 0.0;
+            let mut comp2: f32 = 0.0;
+        
+            match compare{
+                "Weather Code" => {
+                    comp1 = data_first.weather_code as f32;
+                    comp2 = data_second.weather_code as f32;
+                }
+                "High Temperature" => {
+                    comp1 = data_first.temp_max;
+                    comp2 = data_second.temp_max;
+                }
+                "Low Temperature" => {
+                    comp1 = data_first.temp_min;
+                    comp2 = data_second.temp_min;
+                }
+                "Total Precipitation" => {
+                    comp1 = data_first.precip_sum;
+                    comp2 = data_second.precip_sum;
+                }
+                "Highest Precipitation Chance" => {
+                    comp1 = data_first.precip_prob_max;
+                    comp2 = data_second.precip_prob_max;
+                }
+                "Maximum Wind Speed" => {
+                    comp1 = data_first.max_wind;
+                    comp2 = data_second.max_wind;
+                }
+                _ => {
+                    println!("Invalid option! Please try again");
+                    data_ops(data, point);
+                    return;
+                }
+            }
+            if comp2 > comp1{
+                let temp = comp1;
+                comp1 = comp2;
+                comp2 = temp;
+
+                let temp = date_first;
+                date_first = date_second;
+                date_second = temp;
+            }
+            if compare == "Weather Code"{
+                format!("{} at {} ({}) is larger than {} at {} ({})", compare, date_first, comp1 as u8, compare, date_second, comp2 as u8);
+
+            }
+            format!("{} at {} ({}) is larger than {} at {} ({})", compare, date_first, comp1, compare, date_second, comp2)
+
+
+        }
+        
         _ => {
             println!("Invalid option! Please try again");
             data_ops(data, point);

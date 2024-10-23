@@ -1,45 +1,73 @@
 import { useState } from 'react';
 import './App.css'
+import { WeatherData, Options, getDataFromServer } from './util/WeatherData';
 
-enum Options {
-  WeatherCode = "weather_code",
-  TempMax = "temperature_max",
-  TempMin = "temperature_min",
-  PrecipSum = "precipitation_sum",
-  WindMax = "wind_speed_max",
-  PrecipProbMax = "precipitation_probability_max",
+function getDataFromAPI(xCoord: number, yCoord: number){
+
 }
 
-const addr = 'http://localhost:3000';
+function DateDisplay({ data }: { data: WeatherData[] }){
+  return(
+    <div id="tableDisplay">
+      <table id="weatherDataTable">
+        <thead>
+          <tr>
+          <th>Date</th>
+          <th>Weather Code</th>
+          <th>Max Temperature</th>
+          <th>Min Temperature</th>
+          <th>Precipitation Sum</th>
+          <th>Max Wind Speed</th>
+          <th>Precipitation Probability Max</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            {data.map((entry, index) => (
+            <tr key={index}>
+              <th scope='row'>{entry.date}</th>
+              <td>{entry.weather_code}</td>
+              <td>{entry.temperature_max}</td>
+              <td>{entry.temperature_min}</td>
+              <td>{entry.precipitation_sum}</td>
+              <td>{entry.wind_speed_max}</td>
+              <td>{entry.precipitation_probability_max}</td>
 
-function getDataFromLocal(dates: String[], options: Options[] = []) {
-  let url = addr + '/q?date=';
-  for (let i = 0; i < dates.length; i++) {
-    url += dates[i];
-    if (i < dates.length - 1) {
-      url += '%20';
-    }
-  }
-  if (options.length > 0) {
-    url += '&values=';
-    for (let i = 0; i < options.length; i++) {
-      url += options[i];
-      if (i < options.length - 1) {
-        url += '%20';
-      }
-    }
-  }
-  fetch(url)
-    .then(res => res.json())
-    .then(data => {console.log(data); return data});
+            </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 function App() {
-  const [dates, setDates] = useState([]);
+  const [date1, setDate1] = useState('');
+  const [date2, setDate2] = useState('');
   const [options, setOptions] = useState([]);
+  const [data, setData] = useState([] as WeatherData[]);
+  const [display, setDisplay] = useState(false);
+  const [graphOption, setGraph] = useState(Options.TempMax); 
   return (
     <>
-
+    <div id='dateSelect'>
+      <p>Start date: </p>
+      <input type="date" onChange={e => {setDate1(e.target.value); console.log(e.target.value)}}></input>
+      <p>End date: </p>
+      <input type="date" onChange={e => {setDate2(e.target.value); console.log(e.target.value)}}></input>
+      <p>{date1} to {date2}</p>
+      <button onClick={async e => {
+        let data = await getDataFromServer([date1, date2]);
+        setData(data);
+        setDisplay(true);
+      }}>CLICK ME</button>
+    </div>
+    {display && (
+    <div id="data">
+    <DateDisplay data={data} />
+    </div>
+    )}
+    
     </>
   )
 }

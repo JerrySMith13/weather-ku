@@ -1,15 +1,13 @@
 const fs = require('fs');
 
 // Define the URL to fetch
-const url = 'http://localhost:3000/q?dates=2024-4-27';
+const url = 'http://localhost:3000/q?dates=2024-4-22%202024-4-23';
 
 // Define the JSON array to send in the POST request
 
 
 // Fetch the URL with a POST request
-fetch(url, {
-    method: 'DELETE'
-})
+fetch(url)
     .then(response => {
         if (!response.ok) {
             return response.text().then(errorBody => {

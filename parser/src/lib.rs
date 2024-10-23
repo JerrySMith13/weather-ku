@@ -31,30 +31,33 @@ pub type ParseResult<T> = Result<T, ParseError>;
 pub type WeatherDataMap = IndexMap<Date, WeatherData>;
 
 pub trait DataOps{
-    fn take_range(&self, begin: &Date, end: &Date) -> Option<WeatherDataMap>;
+    fn take_range(&self, begin: &Date, end: &Date) -> WeatherDataMap;
     fn json(self, points: HashSet<DataPoint>) -> String;
     fn to_file(&self) -> String;
 }
 
 impl DataOps for WeatherDataMap{
-    fn take_range(&self, begin: &Date, end: &Date) -> Option<WeatherDataMap>{
+    fn take_range(&self, begin: &Date, end: &Date) -> WeatherDataMap{
         let begin_index = match self.get_index_of(begin){
             Some(index) => index,
-            None => return None,
+            None => {
+                let closest = self.keys().min_by(|a, b| Date::distance(a, begin).cmp(&Date::distance(b, begin))).unwrap();
+                self.get_index_of(closest).unwrap()
+            },
         };
         let end_index = match self.get_index_of(end){
             Some(index) => index,
-            None => return None,
+            None => {
+                let closest = self.keys().min_by(|a, b| Date::distance(a, end).cmp(&Date::distance(b, end))).unwrap();
+                self.get_index_of(closest).unwrap()
+            },
         };
 
         let mut map: WeatherDataMap = IndexMap::with_capacity(begin_index.abs_diff(end_index) as usize);
-
-        for (date, data) in self.iter(){
-            if date >= begin && date <= end{
-                map.insert(*date, data.clone());
-            }
-        }
-        Some(map)
+        self.get_range(begin_index..=end_index).unwrap().iter().for_each(|(date, data)|{
+            map.insert(*date, data.clone());
+        });
+        map
     }
     fn json(self, mut options: HashSet<DataPoint>) -> String{
         let mut json = String::from("[");
@@ -118,6 +121,24 @@ pub struct Date{
 
 impl Date{
     /// Creates a new Date object from string formatted as "YYYY-MM-DD"
+    /// # Errors
+    /// Returns an error if the date is not formatted correctly
+    /// # Examples
+    /// ```
+    /// use parser::Date;
+    /// let date = Date::from_string("2021-01-01").unwrap();
+    /// assert_eq!(date.year, 2021);
+    /// assert_eq!(date.month, 1);
+    /// assert_eq!(date.day, 1);
+    ///
+    /// ```
+    /// 
+    /// 
+    /// ```
+    /// use parser::Date;
+    /// let date = Date::from_string("01-01-21");
+    /// assert!(date.is_err());
+    /// ```
     pub fn from_string(date: &str) -> ParseResult<Date>{
         let parts: Vec<&str> = date.split('-').collect();
         if parts.len() != 3{
@@ -130,7 +151,7 @@ impl Date{
         let month = match parts[1].parse(){
             Ok(month) => month,
             Err(_) => return Err(ParseError::InvalidDate(format!("Invalid month: {}", parts[1]))),
-        }; //FIXME: Unwrap
+        }; 
         let day = match parts[2].parse(){
             Ok(day) => day,
             Err(_) => return Err(ParseError::InvalidDate(format!("Invalid day: {}", parts[2]))),
@@ -152,8 +173,6 @@ impl Date{
     }
 }
 
-
-//FIXME: MAKE THIS A MACRO PLEASEEEEEEE I NEED TO LEARN MACROS
 #[inline]
 fn parse_date(data: &str) -> ParseResult<Vec<Date>>{
     let split: Vec<&str> = data.split_whitespace().collect();
